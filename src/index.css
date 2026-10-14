@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/montserrat";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/800.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Identidade derivada do key visual da ARC (V edição): azul ARC #1C95CA,
+  gradiente ciano → azul, tipografia condensada pesada em caixa alta,
+  grelha de pontos e linhas de onda finas. Tokens em OKLCH.
+*/
+@theme inline {
+  --font-sans: "Montserrat Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Montserrat Variable", sans-serif;
+  --font-heading: var(--font-display);
+
+  --color-brand-50: oklch(0.97 0.02 230);
+  --color-brand-100: oklch(0.93 0.045 230);
+  --color-brand-300: oklch(0.8 0.12 225);
+  --color-brand-400: oklch(0.74 0.14 225);
+  --color-brand-500: oklch(0.64 0.14 233);
+  --color-brand-600: oklch(0.55 0.14 240);
+  --color-brand-700: oklch(0.45 0.12 245);
+  --color-brand-900: oklch(0.27 0.07 245);
+  --color-brand-950: oklch(0.21 0.055 245);
+
+  --color-ok: var(--ok);
+  --color-ok-foreground: var(--ok-foreground);
+  --color-warn: var(--warn);
+  --color-warn-foreground: var(--warn-foreground);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  --background: oklch(0.985 0.004 230);
+  --foreground: oklch(0.22 0.04 245);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.04 245);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.04 245);
+  --primary: oklch(0.55 0.14 240);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.02 230);
+  --secondary-foreground: oklch(0.3 0.07 245);
+  --muted: oklch(0.955 0.01 230);
+  --muted-foreground: oklch(0.5 0.03 245);
+  --accent: oklch(0.94 0.03 228);
+  --accent-foreground: oklch(0.3 0.08 245);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.91 0.015 235);
+  --input: oklch(0.89 0.02 235);
+  --ring: oklch(0.64 0.14 233);
+  --ok: oklch(0.62 0.16 152);
+  --ok-foreground: oklch(0.99 0 0);
+  --warn: oklch(0.78 0.16 75);
+  --warn-foreground: oklch(0.25 0.05 60);
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.035 245);
+  --foreground: oklch(0.97 0.01 230);
+  --card: oklch(0.22 0.045 245);
+  --card-foreground: oklch(0.97 0.01 230);
+  --popover: oklch(0.22 0.045 245);
+  --popover-foreground: oklch(0.97 0.01 230);
+  --primary: oklch(0.74 0.14 225);
+  --primary-foreground: oklch(0.17 0.035 245);
+  --secondary: oklch(0.27 0.05 245);
+  --secondary-foreground: oklch(0.97 0.01 230);
+  --muted: oklch(0.26 0.04 245);
+  --muted-foreground: oklch(0.72 0.03 235);
+  --accent: oklch(0.28 0.05 245);
+  --accent-foreground: oklch(0.97 0.01 230);
+  --destructive: oklch(0.66 0.2 25);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.74 0.14 225);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "tnum" 0;
+    overscroll-behavior-y: none;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Gradiente do key visual: ciano luminoso no canto, azul profundo na base */
+  .arc-sky {
+    background:
+      radial-gradient(120% 70% at 85% 0%, oklch(0.8 0.13 220 / 0.9) 0%, transparent 60%),
+      radial-gradient(90% 60% at 0% 100%, oklch(0.45 0.13 248) 0%, transparent 70%),
+      linear-gradient(170deg, oklch(0.66 0.15 232) 0%, oklch(0.55 0.15 240) 55%, oklch(0.42 0.12 248) 100%);
+  }
+  /* Grelha de pontos (motivo do KV) */
+  .arc-dots {
+    background-image: radial-gradient(circle, oklch(1 0 0 / 0.55) 1.2px, transparent 1.6px);
+    background-size: 12px 12px;
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.005em;
+    line-height: 0.92;
+  }
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .press {
+    transition: transform 160ms var(--ease-out-strong);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  }
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
