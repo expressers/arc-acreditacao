@@ -4,7 +4,10 @@ import type { EventSettings, Guest } from '../shared/guests.ts'
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL não definido')
 
-const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(url)
+// Local e rede interna do Render (host sem domínio, ex.: dpg-xxxx-a) dispensam TLS;
+// ligações externas exigem-no.
+const host = new URL(url).hostname
+const isLocal = host === 'localhost' || host === '127.0.0.1' || !host.includes('.')
 
 export const sql = postgres(url, {
   max: 8,
