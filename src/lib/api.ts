@@ -1,3 +1,5 @@
+import { DEMO, demoFetch } from './demo'
+
 export class ApiError extends Error {
   status: number
   constructor(message: string, status: number) {
@@ -9,7 +11,7 @@ export class ApiError extends Error {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
-    res = await fetch(path, {
+    res = DEMO ? await demoFetch(method, path, body) : await fetch(path, {
       method,
       credentials: 'same-origin',
       headers: { 'x-app': 'acreditacao', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
