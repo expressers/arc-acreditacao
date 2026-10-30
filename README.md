@@ -15,7 +15,7 @@ PWA mobile-first para a **VII Conferência Anual sobre Concorrência e Regulaç�
 | Função | Onde | Credencial |
 |---|---|---|
 | Organização (painel) | `/` → Organização | `ADMIN_PASSWORD` |
-| Entrada (leitor) | `/` → Entrada | `DOOR_PIN` + nome do posto |
+| Entrada (leitor) | `/` → Entrada | `DOOR_PIN` (por omissão `1234`) + nome do posto |
 | Convidado | link do email `/c/<token>` | — |
 
 ## Stack

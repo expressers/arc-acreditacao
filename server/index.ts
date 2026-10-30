@@ -35,7 +35,8 @@ const app = new Hono<Env>()
 
 const PORT = Number(process.env.PORT ?? 3000)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
-const DOOR_PIN = process.env.DOOR_PIN
+// PIN da entrada: 1234 por omissão (pedido de 30/10/2026); DOOR_PIN no ambiente sobrepõe-se.
+const DOOR_PIN = process.env.DOOR_PIN || '1234'
 const MAIL_RATE = Math.max(0.5, Number(process.env.MAIL_RATE_PER_SEC ?? 2))
 
 function baseUrl(c: { req: { url: string } }) {
@@ -462,7 +463,7 @@ await sql`
   create or replace function unaccent_name(t text) returns text language sql immutable as
   $$ select lower(translate(t, 'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ', 'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNn')) $$`
 
-if (!ADMIN_PASSWORD || !DOOR_PIN) console.warn('[auth] ADMIN_PASSWORD e/ou DOOR_PIN não definidos: login bloqueado.')
+if (!ADMIN_PASSWORD) console.warn('[auth] ADMIN_PASSWORD não definido: login da organização bloqueado.')
 console.log(`Acreditação a correr em :${PORT} · email ${mailConfigured ? 'activo' : 'não configurado'}`)
 
 export default { port: PORT, fetch: app.fetch }
