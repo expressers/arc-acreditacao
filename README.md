@@ -40,6 +40,6 @@ bun run dev            # app em :5173 (proxy para a API)
   - Start: `bun run start`
   - Health check: `/api/health`
 - Postgres do Render ligado por `DATABASE_URL`.
-- Variáveis: `SESSION_SECRET`, `ADMIN_PASSWORD`, `DOOR_PIN`, `NODE_ENV=production` e, para email, `SMTP_*`.
+- Variáveis: `SESSION_SECRET`, `ADMIN_PASSWORD` e `DOOR_PIN` (ambos `1234` por omissão), `NODE_ENV=production` e, para email, `SMTP_*`.
 
 As tabelas são criadas automaticamente no arranque.
