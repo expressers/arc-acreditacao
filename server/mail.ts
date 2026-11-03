@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import nodemailer, { type Transporter } from 'nodemailer'
 import QRCode from 'qrcode'
 import { CATEGORY_LABEL, type EventSettings, type Guest } from '../shared/guests.ts'
@@ -68,8 +70,36 @@ export async function qrPng(text: string) {
 
 type MailGuest = Pick<Guest, 'name' | 'email' | 'category' | 'organization' | 'token'>
 
-/** Imagens do email servidas pela própria plataforma (public/email). */
-const asset = (base: string, name: string) => `${base.replace(/\/$/, '')}/email/${name}`
+/**
+ * Imagens do email (banner e ícones). Vão embutidas na mensagem (CID), como o QR:
+ * muitos clientes (Outlook, webmails) bloqueiam imagens externas por omissão.
+ */
+const EMAIL_ASSETS = [
+  'convite-banner.jpg',
+  'i-calendar-white.png',
+  'i-pin-blue.png',
+  'i-clock-blue.png',
+  'i-mail-white.png',
+  'i-phone-white.png',
+  'i-globe-blue.png',
+] as const
+type ImgSrc = (name: string) => string
+export const cidSrc: ImgSrc = (name) => `cid:${name}`
+
+let assetCache: { filename: string; content: Buffer; cid: string; contentType: string }[] | null = null
+function emailAttachments() {
+  if (!assetCache) {
+    const dir = ['dist/email', 'public/email'].map((d) => join(process.cwd(), d)).find((d) => existsSync(d))
+    if (!dir) throw new Error('Imagens do email não encontradas (dist/email ou public/email).')
+    assetCache = EMAIL_ASSETS.map((name) => ({
+      filename: name,
+      content: readFileSync(join(dir, name)),
+      cid: name,
+      contentType: name.endsWith('.jpg') ? 'image/jpeg' : 'image/png',
+    }))
+  }
+  return assetCache
+}
 
 const NAVY = '#044a98'
 const BLUE = '#0a5fc4'
@@ -77,8 +107,7 @@ const INK = '#2b3d55'
 const LIGHT = '#e8f5fd'
 const FONT = "font-family:Montserrat,'Helvetica Neue',Helvetica,Arial,sans-serif"
 
-export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, base = new URL(link).origin) {
-  const img = (n: string) => asset(base, n)
+export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img: ImgSrc = cidSrc) {
   const date = dayMonthYear(s.date)
   const note = noReplyNote(true, s.organizer)
   const ico = (n: string, size = 22) =>
@@ -111,7 +140,7 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, bas
   <tr><td class="card" style="background:#ffffff;border-radius:16px;padding:10px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="border-radius:12px;overflow:hidden;background:#14abcd">
-        <img src="${img('convite-banner.png')}" width="580" alt="ARC · Autoridade Reguladora da Concorrência — Convite" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:12px;${FONT};font-size:24px;font-weight:800;color:#ffffff">
+        <img src="${img('convite-banner.jpg')}" width="580" alt="ARC · Autoridade Reguladora da Concorrência — Convite" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:12px;${FONT};font-size:24px;font-weight:800;color:#ffffff">
       </td></tr>
       <tr><td class="px" style="padding:30px 32px 0;${FONT}">
         <h1 class="h1" style="margin:0;font-size:31px;line-height:1.12;font-weight:800;color:${NAVY};letter-spacing:-0.3px">${esc(eventName(s))}</h1>
@@ -127,7 +156,7 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, bas
       </td></tr>
       <tr><td class="px" style="padding:26px 22px 0">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stack"><tr>
-          <td class="datecell" width="44%" valign="middle" background="${img('date-bg.png')}" bgcolor="#0a8fd2" style="background:#0a8fd2 url('${img('date-bg.png')}') center/cover no-repeat;border-radius:12px 0 0 12px;padding:22px 20px">
+          <td class="datecell" width="44%" valign="middle" bgcolor="#0a8fd2" style="background-color:#0a8fd2;background-image:linear-gradient(110deg,#0a87d2 0%,#14abcd 100%);border-radius:12px 0 0 12px;padding:22px 20px">
             <table role="presentation" cellpadding="0" cellspacing="0"><tr>
               <td valign="middle" style="padding-right:14px">${ico('i-calendar-white.png', 34)}</td>
               <td valign="middle" style="${FONT};font-size:19px;line-height:1.2;font-weight:800;color:#ffffff">${esc(date)}</td>
@@ -228,6 +257,6 @@ export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: st
     subject: `Convite · ${s.edition} ${s.subtitle} sobre ${s.title}`,
     text: inviteText(guest, s, link),
     html: inviteHtml(guest, s, link),
-    attachments: [{ filename: 'credencial-qr.png', content: png, cid: 'qr', contentType: 'image/png' }],
+    attachments: [{ filename: 'credencial-qr.png', content: png, cid: 'qr', contentType: 'image/png' }, ...emailAttachments()],
   })
 }

@@ -443,7 +443,8 @@ app.get('/api/invites/preview', admin, async (c) => {
   const sample = { name: 'Nome do Convidado', email: 'convidado@exemplo.ao', category: 'convidado' as const, organization: null, token: 'pre-visualizacao' }
   const link = credentialUrl(baseUrl(c), sample.token)
   const png = await qrPng(link)
-  const html = inviteHtml(sample, await getSettings(), link).replace('cid:qr', `data:image/png;base64,${png.toString('base64')}`)
+  const base = baseUrl(c).replace(/\/$/, '')
+  const html = inviteHtml(sample, await getSettings(), link, (n) => `${base}/email/${n}`).replace('cid:qr', `data:image/png;base64,${png.toString('base64')}`)
   return c.json({ html })
 })
 
