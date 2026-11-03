@@ -3,12 +3,30 @@ import QRCode from 'qrcode'
 import { CATEGORY_LABEL, type EventSettings, type Guest } from '../shared/guests.ts'
 import { eventName, longDate, timeRange } from '../shared/format.ts'
 
-const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME, MAIL_CC, MAIL_REPLY_TO } = process.env
+const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME, MAIL_CC, MAIL_BCC, MAIL_REPLY_TO, MAIL_CONTACTS } =
+  process.env
 
 /** Lista de emails separados por vírgula (ex.: MAIL_CC=a@x.ao,b@y.ao). */
 const list = (v?: string) => (v ?? '').split(',').map((s) => s.trim()).filter(Boolean)
 export const mailCc = list(MAIL_CC)
+export const mailBcc = list(MAIL_BCC)
 export const mailReplyTo = list(MAIL_REPLY_TO)
+/** Emails de contacto da organização mostrados na nota do rodapé. */
+const contacts = list(MAIL_CONTACTS ?? 'eventos.arc@minfin.gov.ao,dac.arc@minfin.gov.ao')
+
+const joinPt = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} ou ${xs[xs.length - 1]}` : xs[0] ?? '')
+
+/** Nota de que o remetente não recebe mensagens, com os contactos da organização. */
+function noReplyNote(html: boolean, organizer: string) {
+  const org = organizer ? `a ${organizer}` : 'a organização'
+  const from = SMTP_FROM ?? 'o email da plataforma'
+  if (!contacts.length) return ''
+  if (!html)
+    return `Nota: O email ${from} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${org} através de ${joinPt(contacts)}.`
+  const links = contacts.map((e) => `<a href="mailto:${esc(e)}" style="color:#1176bf">${esc(e)}</a>`)
+  const joined = links.length > 1 ? `${links.slice(0, -1).join(', ')} ou ${links[links.length - 1]}` : links[0]
+  return `<strong>Nota:</strong> O email ${esc(from)} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${esc(org)} através de ${joined}.`
+}
 
 export const mailConfigured = Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASSWORD && SMTP_FROM)
 export const mailFrom = SMTP_FROM ?? null
@@ -83,7 +101,10 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string) {
   </td></tr>
   <tr><td style="padding:16px 28px 28px;${font};font-size:12px;line-height:1.6;color:#6b8296">
     A credencial é pessoal e intransmissível. Se não conseguir ver a imagem, use o botão acima.${s.contactEmail ? ` Dúvidas: <a href="mailto:${esc(s.contactEmail)}" style="color:#1176bf">${esc(s.contactEmail)}</a>.` : ''}
-  </td></tr>
+  </td></tr>${noReplyNote(true, s.organizer) ? `
+  <tr><td style="padding:0 28px 28px;${font};font-size:12px;line-height:1.6;color:#6b8296">
+    <div style="border-top:1px solid #e3edf5;padding-top:16px">${noReplyNote(true, s.organizer)}</div>
+  </td></tr>` : ''}
 </table>
 </td></tr></table></body></html>`
 }
@@ -100,6 +121,7 @@ function inviteText(guest: MailGuest, s: EventSettings, link: string) {
     `A sua credencial digital (QR Code de acesso): ${link}`,
     '',
     'A credencial é pessoal e intransmissível.',
+    ...(noReplyNote(false, s.organizer) ? ['', noReplyNote(false, s.organizer)] : []),
   ].join('\n')
 }
 
@@ -110,6 +132,7 @@ export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: st
     from: SMTP_SENDER_NAME ? { name: SMTP_SENDER_NAME, address: SMTP_FROM! } : SMTP_FROM,
     to,
     ...(mailCc.length ? { cc: mailCc } : {}),
+    ...(mailBcc.length ? { bcc: mailBcc } : {}),
     ...(mailReplyTo.length ? { replyTo: mailReplyTo } : {}),
     subject: `Convite · ${s.edition} ${s.subtitle} sobre ${s.title}`,
     text: inviteText(guest, s, link),
