@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS: EventSettings = {
   endTime: '14:30',
   venue: 'HCTA – Hotel de Convenções de Talatona',
   room: '',
-  organizer: 'Autoridade Reguladora da Concorrência',
+  organizer: 'Autoridade Reguladora da Concorrência (ARC)',
   contactEmail: 'geral.arc@minfin.gov.ao',
 }
 
@@ -49,6 +49,8 @@ export async function migrate() {
       updated_at timestamptz not null default now()
     )`
   await sql`create unique index if not exists guests_email_key on guests (lower(email))`
+  await sql`alter table guests add column if not exists position text`
+  await sql`alter table guests add column if not exists confirmed_at timestamptz`
   await sql`create index if not exists guests_checked_in_idx on guests (checked_in_at desc nulls last)`
   await sql`
     create table if not exists scans (
@@ -73,7 +75,9 @@ type GuestRow = {
   email: string
   category: Guest['category']
   organization: string | null
+  position: string | null
   token: string
+  confirmed_at: Date | null
   invite_status: Guest['inviteStatus']
   invite_sent_at: Date | null
   invite_error: string | null
@@ -82,7 +86,7 @@ type GuestRow = {
   created_at: Date
 }
 
-export const GUEST_COLUMNS = sql`id, name, email, category, organization, token, invite_status,
+export const GUEST_COLUMNS = sql`id, name, email, category, organization, position, token, confirmed_at, invite_status,
   invite_sent_at, invite_error, checked_in_at, checked_in_by, created_at`
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null)
@@ -94,7 +98,9 @@ export function toGuest(r: GuestRow): Guest {
     email: r.email,
     category: r.category,
     organization: r.organization,
+    position: r.position,
     token: r.token,
+    confirmedAt: iso(r.confirmed_at),
     inviteStatus: r.invite_status,
     inviteSentAt: iso(r.invite_sent_at),
     inviteError: r.invite_error,
@@ -108,7 +114,10 @@ export type { GuestRow }
 
 export async function getSettings(): Promise<EventSettings> {
   const rows = await sql<{ value: Partial<EventSettings> }[]>`select value from settings where key = 'event'`
-  return { ...DEFAULT_SETTINGS, ...(rows[0]?.value ?? {}) }
+  const s = { ...DEFAULT_SETTINGS, ...(rows[0]?.value ?? {}) }
+  // Pedido de 03/11: o nome da instituição leva sempre a sigla.
+  if (s.organizer === 'Autoridade Reguladora da Concorrência') s.organizer = DEFAULT_SETTINGS.organizer
+  return s
 }
 
 export async function saveSettings(value: EventSettings) {

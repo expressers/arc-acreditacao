@@ -27,7 +27,11 @@ export interface Guest {
   email: string
   category: Category
   organization: string | null
+  /** Cargo, indicado pelo convidado na confirmação (ou importado). */
+  position: string | null
   token: string
+  /** Momento em que o convidado confirmou a presença (pode ter actualizado os dados). */
+  confirmedAt: string | null
   inviteStatus: InviteStatus
   inviteSentAt: string | null
   inviteError: string | null
@@ -51,6 +55,7 @@ export interface EventSettings {
 
 export const MAX_NAME = 120
 export const MAX_ORG = 120
+export const MAX_POSITION = 120
 export const MAX_GUESTS = 2000
 
 // Caracteres de controlo e invisíveis que costumam vir colados do Excel/Word.
@@ -112,6 +117,7 @@ export interface GuestInput {
   email: string
   category: Category
   organization: string | null
+  position: string | null
 }
 
 export type RowIssue = 'nome em falta' | 'email inválido' | 'email repetido' | 'categoria desconhecida'
@@ -124,7 +130,7 @@ export interface CheckedRow {
 
 /** Valida uma lista crua (do Excel ou do formulário). */
 export function checkRows(
-  rows: Array<{ line: number; name: unknown; email: unknown; category?: unknown; organization?: unknown }>,
+  rows: Array<{ line: number; name: unknown; email: unknown; category?: unknown; organization?: unknown; position?: unknown }>,
   fallback: Category,
   existingEmails: Set<string> = new Set(),
 ): CheckedRow[] {
@@ -135,12 +141,13 @@ export function checkRows(
     const email = normalizeEmail(row.email)
     const category = parseCategory(row.category, fallback)
     const organization = cleanText(row.organization, MAX_ORG) || null
+    const position = cleanText(row.position, MAX_POSITION) || null
     if (name.length < 2) issues.push('nome em falta')
     if (!isValidEmail(email)) issues.push('email inválido')
     else if (seen.has(email) || existingEmails.has(email)) issues.push('email repetido')
     if (!category) issues.push('categoria desconhecida')
     if (isValidEmail(email)) seen.add(email)
-    return { line: row.line, input: { name, email, category: category ?? fallback, organization }, issues }
+    return { line: row.line, input: { name, email, category: category ?? fallback, organization, position }, issues }
   })
 }
 

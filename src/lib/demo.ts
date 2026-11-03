@@ -32,7 +32,7 @@ let settings: EventSettings = {
   endTime: '14:30',
   venue: 'Hotel Epic Sana, Luanda',
   room: 'Salão Nobre',
-  organizer: 'Autoridade Reguladora da Concorrência',
+  organizer: 'Autoridade Reguladora da Concorrência (ARC)',
   contactEmail: 'conferencia@exemplo.ao',
 }
 
@@ -80,7 +80,9 @@ let guests: Guest[] = PEOPLE.map(([name, category, organization], i) => {
     email: `${name.split(' ')[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')}.${i + 1}@exemplo.ao`,
     category,
     organization,
+    position: i % 4 === 0 ? 'Director' : null,
     token: token(),
+    confirmedAt: status === 'sent' && i % 2 === 0 ? minutes(60 * 24 + i * 7) : null,
     inviteStatus: status,
     inviteSentAt: status === 'sent' ? minutes(60 * 24 * 3 + i) : null,
     inviteError: status === 'failed' ? 'Caixa de correio inexistente (demonstração).' : null,
@@ -144,7 +146,28 @@ function route(method: string, path: string, body: any): Reply {
   if (p.startsWith('/api/public/credential/')) {
     const t = decodeURIComponent(p.split('/').pop() ?? '')
     const g = guests.find((x) => x.token === t) ?? guests[0]
-    return ok({ guest: mini(g), checkedIn: Boolean(g.checkedInAt), settings })
+    return ok({ guest: { ...mini(g), position: g.position }, checkedIn: Boolean(g.checkedInAt), confirmed: Boolean(g.confirmedAt), settings })
+  }
+  if (p.startsWith('/api/public/invite/')) {
+    const t = decodeURIComponent(p.split('/').pop() ?? '')
+    const g = guests.find((x) => x.token === t) ?? guests[0]
+    return ok({ guest: { name: g.name, email: g.email, category: g.category, organization: g.organization, position: g.position }, confirmedAt: g.confirmedAt, settings })
+  }
+  if (p.startsWith('/api/public/confirm/') && method === 'POST') {
+    const t = decodeURIComponent(p.split('/').pop() ?? '')
+    const g = guests.find((x) => x.token === t) ?? guests[0]
+    const name = tidyName(body?.name)
+    const email = normalizeEmail(body?.email)
+    if (name.length < 2) return fail('Indique o nome completo.')
+    if (guests.some((x) => x.email === email && x.id !== g.id)) return fail('Este email já tem um convite. Use outro email ou contacte a organização.', 409)
+    Object.assign(g, {
+      name,
+      email,
+      organization: String(body?.organization ?? '').trim() || null,
+      position: String(body?.position ?? '').trim() || null,
+      confirmedAt: new Date().toISOString(),
+    })
+    return ok({ ok: true })
   }
 
   if (p === '/api/login' && method === 'POST') {
@@ -217,6 +240,7 @@ function route(method: string, path: string, body: any): Reply {
       sent: guests.filter((g) => g.inviteStatus === 'sent').length,
       pending: guests.filter((g) => g.inviteStatus === 'pending').length,
       failed: guests.filter((g) => g.inviteStatus === 'failed').length,
+      confirmed: guests.filter((g) => g.confirmedAt).length,
       perCategory,
       recent,
       mail: { configured: true, from: 'convites@exemplo.ao' },
@@ -236,7 +260,9 @@ function route(method: string, path: string, body: any): Reply {
       email,
       category: body?.category ?? 'convidado',
       organization: String(body?.organization ?? '').trim() || null,
+      position: String(body?.position ?? '').trim() || null,
       token: token(),
+      confirmedAt: null,
       inviteStatus: 'pending',
       inviteSentAt: null,
       inviteError: null,
@@ -255,6 +281,7 @@ function route(method: string, path: string, body: any): Reply {
         id: uuid(),
         ...r.input,
         token: token(),
+        confirmedAt: null,
         inviteStatus: 'pending',
         inviteSentAt: null,
         inviteError: null,

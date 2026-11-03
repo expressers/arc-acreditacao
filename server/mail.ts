@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import nodemailer, { type Transporter } from 'nodemailer'
 import QRCode from 'qrcode'
-import { CATEGORY_LABEL, type EventSettings, type Guest } from '../shared/guests.ts'
+import type { EventSettings, Guest } from '../shared/guests.ts'
 import { dayMonthYear, eventName } from '../shared/format.ts'
 import { EVENT_COPY as C } from '../shared/event-copy.ts'
 
@@ -22,13 +22,13 @@ const joinPt = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')}
 /** Nota de que o remetente não recebe mensagens, com os contactos da organização. */
 function noReplyNote(html: boolean, organizer: string) {
   const org = organizer ? `a ${organizer}` : 'a organização'
-  const from = SMTP_FROM ?? 'o email da plataforma'
+  const lead = SMTP_FROM ? `O email ${SMTP_FROM}` : 'Este email'
   if (!contacts.length) return ''
   if (!html)
-    return `Nota: O email ${from} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${org} através de ${joinPt(contacts)}.`
+    return `Nota: ${lead} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${org} através de ${joinPt(contacts)}.`
   const links = contacts.map((e) => `<a href="mailto:${esc(e)}" style="color:#1176bf">${esc(e)}</a>`)
   const joined = links.length > 1 ? `${links.slice(0, -1).join(', ')} ou ${links[links.length - 1]}` : links[0]
-  return `<strong>Nota:</strong> O email ${esc(from)} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${esc(org)} através de ${joined}.`
+  return `<strong>Nota:</strong> ${esc(lead)} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${esc(org)} através de ${joined}.`
 }
 
 export const mailConfigured = Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASSWORD && SMTP_FROM)
@@ -55,6 +55,11 @@ function transport() {
 const esc = (v: string) =>
   v.replace(/[&<>'"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[ch] ?? ch)
 
+/** Página onde o convidado confirma a presença (e depois vê o QR). */
+export function confirmUrl(base: string, token: string) {
+  return `${base.replace(/\/$/, '')}/confirmar/${token}`
+}
+
 export function credentialUrl(base: string, token: string) {
   return `${base.replace(/\/$/, '')}/c/${token}`
 }
@@ -79,8 +84,8 @@ const EMAIL_ASSETS = [
   'i-calendar-white.png',
   'i-pin-blue.png',
   'i-clock-blue.png',
-  'i-mail-white.png',
-  'i-phone-white.png',
+  'i-mail-blue.png',
+  'i-phone-blue.png',
   'i-globe-blue.png',
 ] as const
 type ImgSrc = (name: string) => string
@@ -147,7 +152,7 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img
   <tr><td class="card" style="background:#ffffff;border-radius:16px;padding:10px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="border-radius:12px;overflow:hidden;background:#14abcd">
-        <img src="${img('convite-banner.jpg')}" width="580" alt="ARC · Autoridade Reguladora da Concorrência — Convite" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:12px;${FONT};font-size:24px;font-weight:800;color:#ffffff">
+        <img src="${img('convite-banner.jpg')}" width="580" alt="Autoridade Reguladora da Concorrência (ARC) — Convite" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:12px;${FONT};font-size:24px;font-weight:800;color:#ffffff">
       </td></tr>
       <tr><td class="px" style="padding:30px 32px 0;${FONT}">
         <h1 class="h1" style="margin:0;font-size:31px;line-height:1.12;font-weight:800;color:${NAVY};letter-spacing:-0.3px">${esc(eventName(s))}</h1>
@@ -185,40 +190,28 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img
         </td></tr></table>
       </td></tr>
       <tr><td class="px" style="padding:16px 22px 0">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${LIGHT};border-radius:12px"><tr><td align="center" style="padding:24px 20px 26px;${FONT}">
-          <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#14abcd">Credencial de acesso</p>
-          <p style="margin:6px 0 0;font-size:18px;font-weight:800;color:${NAVY}">${esc(guest.name)}</p>
-          <img src="cid:qr" width="210" height="210" alt="QR Code de acesso" style="display:block;margin:16px auto 0;width:210px;height:210px;border:0">
-          <span style="display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;background:${LIGHT};color:${BLUE};font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase">${esc(CATEGORY_LABEL[guest.category])}</span>
-          <p style="margin:14px auto 0;max-width:380px;font-size:13px;line-height:1.55;color:#5b6b80">Apresente este QR Code à entrada — no telemóvel ou impresso. A credencial é pessoal e intransmissível.</p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px auto 0"><tr><td bgcolor="${BLUE}" style="border-radius:10px">
-            <a href="${esc(link)}" style="display:inline-block;padding:13px 26px;${FONT};font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px">Abrir credencial digital</a>
-          </td></tr></table>
-        </td></tr></table>
-      </td></tr>
-      <tr><td class="px" style="padding:16px 22px 0">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${LIGHT}" style="background:${LIGHT};border-radius:12px"><tr><td style="padding:22px 22px 24px;${FONT}">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${LIGHT}" style="background:${LIGHT};border-radius:12px"><tr><td style="padding:24px 22px 26px;${FONT}">
           <p style="margin:0;font-size:21px;font-weight:800;color:${NAVY}">Confirmação de presença</p>
           <p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#5b6b80">${esc(C.rsvpText)}</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px" class="stack"><tr>
-            <td valign="middle" style="padding:0 0 10px">
-              <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${BLUE}" style="border-radius:8px">
-                <a href="mailto:${esc(C.rsvpEmail)}" style="display:block;padding:11px 18px;${FONT};font-size:14px;font-weight:700;color:#ffffff;text-decoration:none">
-                  <img src="${img('i-mail-white.png')}" width="18" height="18" alt="" style="vertical-align:-3px;margin-right:10px;border:0">${esc(C.rsvpEmail)}</a>
-              </td></tr></table>
-            </td>
-            <td valign="middle" style="padding:0 0 10px;${FONT}">
-              <a href="tel:${esc(C.rsvpPhoneHref)}" style="font-size:16px;font-weight:700;color:${BLUE};text-decoration:none;white-space:nowrap">
-                <span style="display:inline-block;width:32px;height:32px;border-radius:16px;background:${BLUE};text-align:center;vertical-align:middle;margin-right:8px"><img src="${img('i-phone-white.png')}" width="16" height="16" alt="" style="margin-top:8px;border:0"></span>${esc(C.rsvpPhone)}</a>
-            </td>
-          </tr></table>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:18px"><tr><td bgcolor="${BLUE}" style="border-radius:10px">
+            <a href="${esc(link)}" style="display:inline-block;padding:14px 40px;${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px">Confirmar</a>
+          </td></tr></table>
+          <p style="margin:14px 0 0;font-size:13px;line-height:1.55;color:#5b6b80">Pode confirmar os seus dados, corrigi-los ou indicar um representante. Depois de confirmar, fica disponível a sua credencial com o QR Code de entrada.</p>
         </td></tr></table>
       </td></tr>
-      <tr><td class="px" style="padding:22px 32px 16px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #c5def3" class="stack"><tr>
+      <tr><td class="px" style="padding:24px 32px 18px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #c5def3"><tr>
           <td style="padding-top:16px;${FONT};font-size:14px;font-weight:700;color:${NAVY}">${esc(s.organizer)}</td>
-          <td align="right" class="fl" style="padding-top:16px;${FONT};font-size:14px;font-weight:600;white-space:nowrap">
-            <a href="https://${esc(C.website)}" style="color:${BLUE};text-decoration:none"><img src="${img('i-globe-blue.png')}" width="20" height="20" alt="" style="vertical-align:-5px;margin-right:8px;border:0">${esc(C.website)}</a>
+        </tr></table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stack" style="margin-top:8px"><tr>
+          <td style="padding:6px 14px 6px 0;${FONT};font-size:13px;font-weight:600;white-space:nowrap">
+            <a href="mailto:${esc(C.rsvpEmail)}" style="color:${BLUE};text-decoration:none">${ico('i-mail-blue.png', 18).replace('display:block;', 'display:inline-block;vertical-align:-4px;margin-right:7px;')}${esc(C.rsvpEmail)}</a>
+          </td>
+          <td style="padding:6px 14px 6px 0;${FONT};font-size:13px;font-weight:600;white-space:nowrap">
+            <a href="tel:${esc(C.rsvpPhoneHref)}" style="color:${BLUE};text-decoration:none">${ico('i-phone-blue.png', 18).replace('display:block;', 'display:inline-block;vertical-align:-4px;margin-right:7px;')}${esc(C.rsvpPhone)}</a>
+          </td>
+          <td style="padding:6px 0;${FONT};font-size:13px;font-weight:600;white-space:nowrap">
+            <a href="https://${esc(C.website)}" style="color:${BLUE};text-decoration:none">${ico('i-globe-blue.png', 18).replace('display:block;', 'display:inline-block;vertical-align:-4px;margin-right:7px;')}${esc(C.website)}</a>
           </td>
         </tr></table>
       </td></tr>
@@ -245,22 +238,19 @@ function inviteText(guest: MailGuest, s: EventSettings, link: string) {
     `Recepção e registo: ${C.receptionTime} | Início da sessão: ${C.sessionTime}`,
     `Programa do evento (PDF): ${new URL(link).origin}${C.programPath}`,
     '',
-    `Categoria: ${CATEGORY_LABEL[guest.category]}`,
-    `A sua credencial digital (QR Code de acesso): ${link}`,
-    'A credencial é pessoal e intransmissível.',
-    '',
     'Confirmação de presença',
     C.rsvpText,
-    `${C.rsvpEmail} · ${C.rsvpPhone}`,
+    `Confirmar: ${link}`,
+    'Pode confirmar os seus dados, corrigi-los ou indicar um representante. Depois de confirmar, fica disponível a sua credencial com o QR Code de entrada.',
     '',
-    `${s.organizer} · ${C.website}`,
+    s.organizer,
+    `${C.rsvpEmail} · ${C.rsvpPhone} · ${C.website}`,
     ...(noReplyNote(false, s.organizer) ? ['', noReplyNote(false, s.organizer)] : []),
   ].join('\n')
 }
 
 export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: string, to = guest.email) {
-  const link = credentialUrl(baseUrl, guest.token)
-  const png = await qrPng(link)
+  const link = confirmUrl(baseUrl, guest.token)
   await transport().sendMail({
     from: SMTP_SENDER_NAME ? { name: SMTP_SENDER_NAME, address: SMTP_FROM! } : SMTP_FROM,
     to,
@@ -270,6 +260,6 @@ export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: st
     subject: `Convite · ${s.edition} ${s.subtitle} sobre ${s.title}`,
     text: inviteText(guest, s, link),
     html: inviteHtml(guest, s, link),
-    attachments: [{ filename: 'credencial-qr.png', content: png, cid: 'qr', contentType: 'image/png' }, ...emailAttachments()],
+    attachments: emailAttachments(),
   })
 }

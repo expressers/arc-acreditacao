@@ -5,6 +5,8 @@ import { z } from 'zod'
 import {
   CATEGORIES,
   MAX_GUESTS,
+  MAX_ORG,
+  MAX_POSITION,
   checkRows,
   cleanText,
   isValidEmail,
@@ -31,7 +33,7 @@ import {
   type Session,
 } from './auth.ts'
 import { GUEST_COLUMNS, getSettings, migrate, saveSettings, sql, toGuest, type GuestRow } from './db.ts'
-import { credentialUrl, dataSrc, inviteHtml, mailConfigured, mailFrom, qrPng, sendInvite } from './mail.ts'
+import { confirmUrl, dataSrc, inviteHtml, mailConfigured, mailFrom, sendInvite } from './mail.ts'
 
 type Env = { Variables: { session: Session } }
 const app = new Hono<Env>()
@@ -87,14 +89,65 @@ app.get('/api/public/settings', async (c) => c.json(await getSettings()))
 app.get('/api/public/credential/:token', async (c) => {
   const token = c.req.param('token') ?? ''
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return c.json({ error: 'Credencial inválida.' }, 404)
-  const [row] = await sql<{ name: string; category: Category; organization: string | null; checked_in_at: Date | null }[]>`
-    select name, category, organization, checked_in_at from guests where token = ${token}`
+  const [row] = await sql<
+    { name: string; category: Category; organization: string | null; position: string | null; checked_in_at: Date | null; confirmed_at: Date | null }[]
+  >`select name, category, organization, position, checked_in_at, confirmed_at from guests where token = ${token}`
   if (!row) return c.json({ error: 'Credencial inválida ou revogada.' }, 404)
   return c.json({
-    guest: { name: row.name, category: row.category, organization: row.organization },
+    guest: { name: row.name, category: row.category, organization: row.organization, position: row.position },
     checkedIn: Boolean(row.checked_in_at),
+    confirmed: Boolean(row.confirmed_at),
     settings: await getSettings(),
   })
+})
+
+// ───────────────────────── confirmação de presença (convidado) ─────────────────────────
+
+const TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/
+
+/** Dados do convite para pré-preencher o formulário. O token (144 bits) é a autorização. */
+app.get('/api/public/invite/:token', async (c) => {
+  const token = c.req.param('token') ?? ''
+  if (!TOKEN_RE.test(token)) return c.json({ error: 'Convite inválido.' }, 404)
+  const [row] = await sql<
+    { name: string; email: string; category: Category; organization: string | null; position: string | null; confirmed_at: Date | null }[]
+  >`select name, email, category, organization, position, confirmed_at from guests where token = ${token}`
+  if (!row) return c.json({ error: 'Convite inválido ou substituído.' }, 404)
+  return c.json({
+    guest: { name: row.name, email: row.email, category: row.category, organization: row.organization, position: row.position },
+    confirmedAt: row.confirmed_at ? row.confirmed_at.toISOString() : null,
+    settings: await getSettings(),
+  })
+})
+
+const confirmSchema = z.object({
+  name: z.string().max(200),
+  email: z.string().max(254),
+  organization: z.string().max(200).nullable().optional(),
+  position: z.string().max(200).nullable().optional(),
+})
+
+/** O convidado confirma (e pode corrigir ou passar o convite a outra pessoa). */
+app.post('/api/public/confirm/:token', async (c) => {
+  const token = c.req.param('token') ?? ''
+  if (!TOKEN_RE.test(token)) return c.json({ error: 'Convite inválido.' }, 404)
+  const body = confirmSchema.safeParse(await c.req.json().catch(() => null))
+  if (!body.success) return c.json({ error: 'Verifique os dados do formulário.' }, 400)
+  const name = tidyName(body.data.name)
+  const email = normalizeEmail(body.data.email)
+  if (name.length < 2) return c.json({ error: 'Indique o nome completo.' }, 400)
+  if (!isValidEmail(email)) return c.json({ error: 'O email não parece válido.' }, 400)
+  const organization = cleanText(body.data.organization, MAX_ORG) || null
+  const position = cleanText(body.data.position, MAX_POSITION) || null
+  const [self] = await sql<{ id: string }[]>`select id from guests where token = ${token}`
+  if (!self) return c.json({ error: 'Convite inválido ou substituído.' }, 404)
+  const [dupe] = await sql`select 1 from guests where lower(email) = ${email} and id <> ${self.id}`
+  if (dupe) return c.json({ error: 'Este email já tem um convite. Use outro email ou contacte a organização.' }, 409)
+  await sql`
+    update guests set name = ${name}, email = ${email}, organization = ${organization}, position = ${position},
+      confirmed_at = now(), updated_at = now()
+    where id = ${self.id}`
+  return c.json({ ok: true })
 })
 
 // ───────────────────────── sessão ─────────────────────────
@@ -214,9 +267,10 @@ app.get('/api/stats', admin, async (c) => {
     select category, count(*)::int as total, count(checked_in_at)::int as present,
       count(*) filter (where invite_status = 'sent')::int as sent
     from guests group by category`
-  const [inv] = await sql<{ pending: number; failed: number }[]>`
+  const [inv] = await sql<{ pending: number; failed: number; confirmed: number }[]>`
     select count(*) filter (where invite_status = 'pending')::int as pending,
-      count(*) filter (where invite_status = 'failed')::int as failed from guests`
+      count(*) filter (where invite_status = 'failed')::int as failed,
+      count(confirmed_at)::int as confirmed from guests`
   const recent = await sql<{ name: string; category: Category; at: Date; device: string | null; result: string }[]>`
     select g.name, g.category, s.at, s.device, s.result from scans s join guests g on g.id = s.guest_id
     where s.result in ('ok', 'manual') order by s.at desc limit 8`
@@ -233,6 +287,7 @@ app.get('/api/stats', admin, async (c) => {
     sent: sum('sent'),
     pending: inv.pending,
     failed: inv.failed,
+    confirmed: inv.confirmed,
     perCategory,
     recent: recent.map((r) => ({ ...r, at: r.at.toISOString() })),
     mail: { configured: mailConfigured, from: mailFrom },
@@ -250,6 +305,7 @@ const guestSchema = z.object({
   email: z.string(),
   category: z.enum(CATEGORIES),
   organization: z.string().nullable().optional(),
+  position: z.string().nullable().optional(),
 })
 
 function sanitizeGuest(raw: unknown) {
@@ -260,7 +316,13 @@ function sanitizeGuest(raw: unknown) {
   if (name.length < 2) return { error: 'Indique o nome completo.' } as const
   if (!isValidEmail(email)) return { error: 'Email inválido.' } as const
   return {
-    value: { name, email, category: parsed.data.category, organization: cleanText(parsed.data.organization, 120) || null },
+    value: {
+      name,
+      email,
+      category: parsed.data.category,
+      organization: cleanText(parsed.data.organization, MAX_ORG) || null,
+      position: cleanText(parsed.data.position, MAX_POSITION) || null,
+    },
   } as const
 }
 
@@ -270,8 +332,8 @@ app.post('/api/guests', admin, async (c) => {
   const [dupe] = await sql`select 1 from guests where lower(email) = ${g.value.email}`
   if (dupe) return c.json({ error: 'Já existe um convidado com este email.' }, 409)
   const [row] = await sql<GuestRow[]>`
-    insert into guests (name, email, category, organization, token)
-    values (${g.value.name}, ${g.value.email}, ${g.value.category}, ${g.value.organization}, ${newToken()})
+    insert into guests (name, email, category, organization, position, token)
+    values (${g.value.name}, ${g.value.email}, ${g.value.category}, ${g.value.organization}, ${g.value.position}, ${newToken()})
     returning ${GUEST_COLUMNS}`
   return c.json(toGuest(row), 201)
 })
@@ -285,7 +347,7 @@ app.patch('/api/guests/:id', admin, async (c) => {
   if (dupe) return c.json({ error: 'Já existe outro convidado com este email.' }, 409)
   const [row] = await sql<GuestRow[]>`
     update guests set name = ${g.value.name}, email = ${g.value.email}, category = ${g.value.category},
-      organization = ${g.value.organization}, updated_at = now(),
+      organization = ${g.value.organization}, position = ${g.value.position}, updated_at = now(),
       invite_status = case when lower(email) <> ${g.value.email} then 'pending' else invite_status end
     where id = ${id} returning ${GUEST_COLUMNS}`
   return row ? c.json(toGuest(row)) : c.json({ error: 'Convidado não encontrado.' }, 404)
@@ -328,6 +390,7 @@ const importSchema = z.object({
         email: z.unknown(),
         category: z.unknown().optional(),
         organization: z.unknown().optional(),
+        position: z.unknown().optional(),
       }),
     )
     .max(MAX_GUESTS),
@@ -347,7 +410,7 @@ app.post('/api/guests/import', admin, async (c) => {
   if (valid.length) {
     const values = valid.map((g) => ({ ...g, token: newToken() }))
     const res = await sql`
-      insert into guests ${sql(values, 'name', 'email', 'category', 'organization', 'token')}
+      insert into guests ${sql(values, 'name', 'email', 'category', 'organization', 'position', 'token')}
       on conflict do nothing`
     inserted = res.count
   }
@@ -441,9 +504,7 @@ app.get('/api/invites/job', admin, (c) => c.json(job))
 
 app.get('/api/invites/preview', admin, async (c) => {
   const sample = { name: 'Nome do Convidado', email: 'convidado@exemplo.ao', category: 'convidado' as const, organization: null, token: 'pre-visualizacao' }
-  const link = credentialUrl(baseUrl(c), sample.token)
-  const png = await qrPng(link)
-  const html = inviteHtml(sample, await getSettings(), link, dataSrc).replace('cid:qr', `data:image/png;base64,${png.toString('base64')}`)
+  const html = inviteHtml(sample, await getSettings(), confirmUrl(baseUrl(c), sample.token), dataSrc)
   return c.json({ html })
 })
 

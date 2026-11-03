@@ -51,13 +51,15 @@ async function exportXlsx(guests: Guest[]) {
     Email: g.email,
     Categoria: CATEGORY_LABEL[g.category],
     Instituição: g.organization ?? '',
+    Cargo: g.position ?? '',
+    'Presença confirmada': g.confirmedAt ? dateTime(g.confirmedAt) : '',
     Convite: g.inviteStatus === 'sent' ? 'Enviado' : g.inviteStatus === 'failed' ? 'Falhou' : 'Por enviar',
     'Entrada às': g.checkedInAt ? dateTime(g.checkedInAt) : '',
     Posto: g.checkedInBy ?? '',
     'Link da credencial': credentialLink(g.token),
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{ wch: 32 }, { wch: 30 }, { wch: 12 }, { wch: 26 }, { wch: 11 }, { wch: 14 }, { wch: 16 }, { wch: 52 }]
+  ws['!cols'] = [{ wch: 32 }, { wch: 30 }, { wch: 12 }, { wch: 26 }, { wch: 24 }, { wch: 18 }, { wch: 11 }, { wch: 14 }, { wch: 16 }, { wch: 52 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Convidados')
   XLSX.writeFile(wb, `acreditacao-convidados-${new Date().toISOString().slice(0, 10)}.xlsx`)
@@ -83,7 +85,7 @@ export default function GuestsPage() {
       if (status === 'por-enviar' && g.inviteStatus !== 'pending') return false
       if (status === 'falhados' && g.inviteStatus !== 'failed') return false
       if (!needle) return true
-      return fold(`${g.name} ${g.email} ${g.organization ?? ''}`).includes(needle)
+      return fold(`${g.name} ${g.email} ${g.organization ?? ''} ${g.position ?? ''}`).includes(needle)
     })
   }, [guests, dq, cat, status])
 
@@ -306,6 +308,16 @@ function GuestDetails({ g, onChange, onEdit, onDeleted }: { g: Guest; onChange: 
               <dd className="font-medium">{g.organization}</dd>
             </div>
           )}
+          {g.position && (
+            <div>
+              <dt className="text-muted-foreground">Cargo</dt>
+              <dd className="font-medium">{g.position}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-muted-foreground">Presença</dt>
+            <dd className={cn('font-medium', g.confirmedAt && 'text-ok')}>{g.confirmedAt ? `Confirmada a ${dateTime(g.confirmedAt)}` : 'Por confirmar'}</dd>
+          </div>
           <div>
             <dt className="text-muted-foreground">Entrada</dt>
             <dd className={cn('font-medium', g.checkedInAt && 'text-ok')}>

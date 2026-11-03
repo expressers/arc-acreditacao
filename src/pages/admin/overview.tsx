@@ -11,6 +11,7 @@ import { PageTitle } from './layout'
 export interface Stats {
   total: number
   present: number
+  confirmed: number
   sent: number
   pending: number
   failed: number
@@ -115,9 +116,10 @@ export default function OverviewPage() {
               </Link>
             </Button>
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
             {[
               { k: 'Enviados', v: s.sent },
+              { k: 'Confirmados', v: s.confirmed },
               { k: 'Por enviar', v: s.pending },
               { k: 'Falharam', v: s.failed },
             ].map(({ k, v }) => (

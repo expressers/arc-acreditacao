@@ -1,4 +1,4 @@
-import { useParams } from 'react-router'
+import { Navigate, useParams } from 'react-router'
 import { CalendarPlus, CheckCircle2, Download, FileText, SunMedium } from 'lucide-react'
 import { CATEGORY_LABEL, type Category, type EventSettings } from '@shared/guests'
 import { longDate, timeRange } from '@shared/format'
@@ -8,8 +8,9 @@ import { useApi } from '@/lib/hooks'
 import { EVENT_COPY } from '@shared/event-copy'
 
 interface Credential {
-  guest: { name: string; category: Category; organization: string | null }
+  guest: { name: string; category: Category; organization: string | null; position: string | null }
   checkedIn: boolean
+  confirmed: boolean
   settings: EventSettings
 }
 
@@ -62,6 +63,9 @@ export default function CredentialPage() {
     )
   }
 
+  // A credencial só existe depois de o convidado confirmar a presença.
+  if (!data.confirmed) return <Navigate to={`/confirmar/${token}`} replace />
+
   const { guest, settings: s } = data
   const where = [s.venue, s.room].filter(Boolean).join(' · ')
 
@@ -79,7 +83,9 @@ export default function CredentialPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-[1.4rem] leading-tight font-extrabold text-balance break-words text-brand-900">{guest.name}</h2>
-              {guest.organization && <p className="mt-0.5 text-sm text-brand-900/70">{guest.organization}</p>}
+              {(guest.position || guest.organization) && (
+                <p className="mt-0.5 text-sm text-brand-900/70">{[guest.position, guest.organization].filter(Boolean).join(' · ')}</p>
+              )}
             </div>
             <span className="shrink-0 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold tracking-wider text-brand-700 uppercase">{CATEGORY_LABEL[guest.category]}</span>
           </div>

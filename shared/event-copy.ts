@@ -5,9 +5,9 @@
 export const EVENT_COPY = {
   theme: 'O Papel da Concorrência e da Regulação na Diversificação Económica',
   invitation:
-    'A Autoridade Reguladora da Concorrência tem a honra de convidar V. Ex.ª a participar na VII Conferência Anual sobre Concorrência e Regulação Económica em Angola.',
+    'A Autoridade Reguladora da Concorrência (ARC) tem a honra de convidar V. Ex.ª a participar na VII Conferência Anual sobre Concorrência e Regulação Económica em Angola.',
   about:
-    'A Conferência constitui um espaço de reflexão e diálogo sobre o contributo da concorrência e da regulação para a diversificação da economia angolana, com enfoque nos mercados agrícolas e na segurança alimentar, nas privatizações e no investimento privado, bem como nas infra-estruturas estratégicas e na competitividade.',
+    'A Conferência constitui um espaço de reflexão e diálogo sobre os desafios e oportunidades da concorrência e da regulação económica no contexto da diversificação da economia nacional.',
   venueShort: 'HCTA',
   venueLong: 'Hotel de Convenções de Talatona | Luanda',
   receptionTime: '08h00',

@@ -11,6 +11,7 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
   const [name, setName] = useState(guest?.name ?? '')
   const [email, setEmail] = useState(guest?.email ?? '')
   const [organization, setOrganization] = useState(guest?.organization ?? '')
+  const [position, setPosition] = useState(guest?.position ?? '')
   const [category, setCategory] = useState<Category>(guest?.category ?? 'convidado')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -24,7 +25,7 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
     setBusy(true)
     setError(null)
     try {
-      const body = { name, email, organization: organization || null, category }
+      const body = { name, email, organization: organization || null, position: position || null, category }
       const saved = guest ? await api.patch<Guest>(`/api/guests/${guest.id}`, body) : await api.post<Guest>('/api/guests', body)
       onSaved(saved)
     } catch (err) {
@@ -47,6 +48,10 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
       <div className="space-y-1.5">
         <Label htmlFor="g-org">Instituição (opcional)</Label>
         <Input id="g-org" value={organization} onChange={(e) => setOrganization(e.target.value)} maxLength={120} className="h-12 text-base" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="g-pos">Cargo (opcional)</Label>
+        <Input id="g-pos" value={position} onChange={(e) => setPosition(e.target.value)} maxLength={120} className="h-12 text-base" />
       </div>
       <fieldset className="space-y-1.5">
         <legend className="text-sm font-medium">Categoria</legend>

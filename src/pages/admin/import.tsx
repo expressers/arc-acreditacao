@@ -10,7 +10,7 @@ import { useApi } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 import { PageTitle } from './layout'
 
-type RawRow = { line: number; name: unknown; email: unknown; category?: unknown; organization?: unknown }
+type RawRow = { line: number; name: unknown; email: unknown; category?: unknown; organization?: unknown; position?: unknown }
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
@@ -24,6 +24,7 @@ function detectColumns(header: string[]) {
     email: find(/(e-?mail|correio)/),
     category: find(/^(categoria|category|tipo|perfil)/),
     organization: find(/(instituic|organizac|entidade|empresa|organization|company|orgao)/),
+    position: find(/^(cargo|funcao|position|job|title)/),
   }
 }
 
@@ -44,6 +45,7 @@ async function parseFile(file: File): Promise<{ rows: RawRow[]; columns: string[
     email: r[col.email],
     category: col.category >= 0 ? r[col.category] : undefined,
     organization: col.organization >= 0 ? r[col.organization] : undefined,
+    position: col.position >= 0 ? r[col.position] : undefined,
   }))
   const columns = Object.entries(col)
     .filter(([, i]) => i >= 0)
@@ -54,10 +56,10 @@ async function parseFile(file: File): Promise<{ rows: RawRow[]; columns: string[
 async function downloadTemplate() {
   const XLSX = await import('xlsx')
   const ws = XLSX.utils.aoa_to_sheet([
-    ['Nome', 'Email', 'Categoria', 'Instituição'],
-    ['Maria da Conceição Neto', 'maria.neto@exemplo.ao', 'Convidado', 'Ministério das Finanças'],
-    ['João Paulo Sebastião', 'joao.sebastiao@exemplo.ao', 'Orador', 'Universidade Agostinho Neto'],
-    ['Ana Lukamba', 'ana.lukamba@exemplo.ao', 'Imprensa', 'Jornal de Angola'],
+    ['Nome', 'Email', 'Categoria', 'Instituição', 'Cargo'],
+    ['Maria da Conceição Neto', 'maria.neto@exemplo.ao', 'Convidado', 'Ministério das Finanças', 'Directora Nacional'],
+    ['João Paulo Sebastião', 'joao.sebastiao@exemplo.ao', 'Orador', 'Universidade Agostinho Neto', 'Professor Catedrático'],
+    ['Ana Lukamba', 'ana.lukamba@exemplo.ao', 'Imprensa', 'Jornal de Angola', 'Jornalista'],
   ])
   ws['!cols'] = [{ wch: 30 }, { wch: 30 }, { wch: 14 }, { wch: 30 }]
   const wb = XLSX.utils.book_new()
@@ -135,7 +137,7 @@ export default function ImportPage() {
     <>
       <PageTitle
         title="Importar lista"
-        description="Excel (.xlsx) ou CSV com uma linha de títulos. Basta Nome e Email; Categoria e Instituição são opcionais."
+        description="Excel (.xlsx) ou CSV com uma linha de títulos. Basta Nome e Email; Categoria, Instituição e Cargo são opcionais."
         actions={
           <Button variant="outline" className="h-10" onClick={() => void downloadTemplate()}>
             <FileSpreadsheet className="size-4" /> Modelo
