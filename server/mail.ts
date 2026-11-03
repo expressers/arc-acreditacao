@@ -86,10 +86,16 @@ const EMAIL_ASSETS = [
 type ImgSrc = (name: string) => string
 export const cidSrc: ImgSrc = (name) => `cid:${name}`
 
+/** Para pré-visualizar no browser: as mesmas imagens, mas embutidas em data URLs. */
+export const dataSrc: ImgSrc = (name) => {
+  const a = emailAttachments().find((x) => x.cid === name)
+  return a ? `data:${a.contentType};base64,${a.content.toString('base64')}` : ''
+}
+
 let assetCache: { filename: string; content: Buffer; cid: string; contentType: string }[] | null = null
 function emailAttachments() {
   if (!assetCache) {
-    const dir = ['dist/email', 'public/email'].map((d) => join(process.cwd(), d)).find((d) => existsSync(d))
+    const dir = ['dist/email', 'public/email'].map((d) => join(process.cwd(), d)).find((d) => EMAIL_ASSETS.every((n) => existsSync(join(d, n))))
     if (!dir) throw new Error('Imagens do email não encontradas (dist/email ou public/email).')
     assetCache = EMAIL_ASSETS.map((name) => ({
       filename: name,

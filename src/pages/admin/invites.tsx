@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, MailWarning, RotateCcw, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -148,7 +148,7 @@ export default function InvitesPage() {
           <section className="overflow-hidden rounded-2xl border bg-card">
             <h2 className="border-b px-5 py-3 text-sm font-bold">Pré-visualização do email</h2>
             {preview.data ? (
-              <iframe title="Pré-visualização do convite" srcDoc={preview.data.html} sandbox="" className="h-[640px] w-full bg-[#eaf3fa]" />
+              <EmailPreview html={preview.data.html} />
             ) : (
               <Skeleton className="m-4 h-[600px]" />
             )}
@@ -165,5 +165,41 @@ export default function InvitesPage() {
         onConfirm={() => start(confirm ?? 'pending')}
       />
     </>
+  )
+}
+
+/** Mostra o email na largura real (640px), reduzido para caber no painel. */
+function EmailPreview({ html }: { html: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const frame = useRef<HTMLIFrameElement>(null)
+  const [scale, setScale] = useState(0.6)
+  const [height, setHeight] = useState(1800)
+  const WIDTH = 640
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setScale(Math.min(1, e.contentRect.width / WIDTH)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div ref={box} className="relative h-[680px] overflow-y-auto overflow-x-hidden bg-[#f0f1f5]">
+      <div style={{ height: height * scale }}>
+        <iframe
+          ref={frame}
+          title="Pré-visualização do convite"
+          srcDoc={html}
+          sandbox="allow-same-origin"
+          scrolling="no"
+          onLoad={() => {
+            const doc = frame.current?.contentDocument
+            if (doc) setHeight(doc.documentElement.scrollHeight)
+          }}
+          style={{ width: WIDTH, height, transform: `scale(${scale})`, transformOrigin: 'top left', border: 0 }}
+        />
+      </div>
+    </div>
   )
 }

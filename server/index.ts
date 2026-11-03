@@ -31,7 +31,7 @@ import {
   type Session,
 } from './auth.ts'
 import { GUEST_COLUMNS, getSettings, migrate, saveSettings, sql, toGuest, type GuestRow } from './db.ts'
-import { credentialUrl, inviteHtml, mailConfigured, mailFrom, qrPng, sendInvite } from './mail.ts'
+import { credentialUrl, dataSrc, inviteHtml, mailConfigured, mailFrom, qrPng, sendInvite } from './mail.ts'
 
 type Env = { Variables: { session: Session } }
 const app = new Hono<Env>()
@@ -443,8 +443,7 @@ app.get('/api/invites/preview', admin, async (c) => {
   const sample = { name: 'Nome do Convidado', email: 'convidado@exemplo.ao', category: 'convidado' as const, organization: null, token: 'pre-visualizacao' }
   const link = credentialUrl(baseUrl(c), sample.token)
   const png = await qrPng(link)
-  const base = baseUrl(c).replace(/\/$/, '')
-  const html = inviteHtml(sample, await getSettings(), link, (n) => `${base}/email/${n}`).replace('cid:qr', `data:image/png;base64,${png.toString('base64')}`)
+  const html = inviteHtml(sample, await getSettings(), link, dataSrc).replace('cid:qr', `data:image/png;base64,${png.toString('base64')}`)
   return c.json({ html })
 })
 
