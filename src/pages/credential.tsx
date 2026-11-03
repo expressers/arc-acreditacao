@@ -1,10 +1,11 @@
 import { useParams } from 'react-router'
-import { CalendarPlus, CheckCircle2, Download, SunMedium } from 'lucide-react'
+import { CalendarPlus, CheckCircle2, Download, FileText, SunMedium } from 'lucide-react'
 import { CATEGORY_LABEL, type Category, type EventSettings } from '@shared/guests'
 import { longDate, timeRange } from '@shared/format'
 import { Button } from '@/components/ui/button'
 import { ArcLogo, EventLockup, credentialLink, useQrDataUrl } from '@/components/brand'
 import { useApi } from '@/lib/hooks'
+import { EVENT_COPY } from '@shared/event-copy'
 
 interface Credential {
   guest: { name: string; category: Category; organization: string | null }
@@ -114,6 +115,11 @@ export default function CredentialPage() {
         </p>
 
         <div className="mt-auto grid grid-cols-2 gap-2 pt-6">
+          <Button asChild className="press col-span-2 h-12 bg-white text-brand-700 hover:bg-white/90">
+            <a href={EVENT_COPY.programPath} target="_blank" rel="noopener">
+              <FileText className="size-4" /> Programa do evento
+            </a>
+          </Button>
           <Button
             variant="secondary"
             className="press h-12 bg-white/15 text-white hover:bg-white/25"

@@ -31,7 +31,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/_/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/_/, /\.pdf$/, /^\/email\//],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },

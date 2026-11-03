@@ -115,6 +115,7 @@ const FONT = "font-family:Montserrat,'Helvetica Neue',Helvetica,Arial,sans-serif
 
 export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img: ImgSrc = cidSrc) {
   const date = dayMonthYear(s.date)
+  const program = `${new URL(link).origin}${C.programPath}`
   const note = noReplyNote(true, s.organizer)
   const ico = (n: string, size = 22) =>
     `<img src="${img(n)}" width="${size}" height="${size}" alt="" style="display:block;width:${size}px;height:${size}px;border:0">`
@@ -178,6 +179,11 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img
           </td>
         </tr></table>
       </td></tr>
+      <tr><td class="px" align="center" style="padding:14px 22px 0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="border:2px solid ${BLUE};border-radius:10px">
+          <a href="${esc(program)}" style="display:block;padding:12px 18px;${FONT};font-size:14px;font-weight:700;color:${BLUE};text-decoration:none">Descarregar o programa do evento (PDF)</a>
+        </td></tr></table>
+      </td></tr>
       <tr><td class="px" style="padding:16px 22px 0">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${LIGHT};border-radius:12px"><tr><td align="center" style="padding:24px 20px 26px;${FONT}">
           <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#14abcd">Credencial de acesso</p>
@@ -237,6 +243,7 @@ function inviteText(guest: MailGuest, s: EventSettings, link: string) {
     `Data: ${dayMonthYear(s.date)}`,
     `Local: ${C.venueShort} — ${C.venueLong}`,
     `Recepção e registo: ${C.receptionTime} | Início da sessão: ${C.sessionTime}`,
+    `Programa do evento (PDF): ${new URL(link).origin}${C.programPath}`,
     '',
     `Categoria: ${CATEGORY_LABEL[guest.category]}`,
     `A sua credencial digital (QR Code de acesso): ${link}`,

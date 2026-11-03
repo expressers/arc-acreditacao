@@ -18,4 +18,6 @@ export const EVENT_COPY = {
   rsvpPhone: '(+244) 931 910 970',
   rsvpPhoneHref: '+244931910970',
   website: 'arc.minfin.gov.ao',
+  /** Programa do evento (PDF em public/). */
+  programPath: '/programa-vii-conferencia-arc.pdf',
 } as const
