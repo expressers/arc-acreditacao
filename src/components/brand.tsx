@@ -22,67 +22,83 @@ export function ArcLogo({ tone = 'white', className }: { tone?: 'white' | 'navy'
 /** Palavras em peso leve no lettering dos entregáveis ("CONFERÊNCIA anual sobre CONCORRÊNCIA…"). */
 const LIGHT_WORDS = new Set(['anual', 'sobre', 'económica', 'em', 'angola', 'de', 'da', 'do'])
 
-function Lettering({ text }: { text: string }) {
-  return (
-    <>
-      {text
-        .split(/\s+/)
-        .filter(Boolean)
-        // "e" passa a "&" e fica colado à palavra seguinte, como na capa ("& REGULAÇÃO")
-        .reduce<string[]>((acc, w, i, all) => (all[i - 1] === 'e' ? acc : [...acc, w === 'e' && all[i + 1] ? `&\u00a0${all[i + 1]}` : w]), [])
-        .map((w, i) => {
-          const light = LIGHT_WORDS.has(w.replace(/^&\u00a0/, '').toLowerCase())
-          return (
-            <span key={i} className={light ? 'font-light' : 'font-extrabold'}>
-              {w}{' '}
-            </span>
-          )
-        })}
-    </>
-  )
+/**
+ * Palavras do lettering em três linhas, como na capa:
+ * CONFERÊNCIA ANUAL / SOBRE CONCORRÊNCIA / & REGULAÇÃO ECONÓMICA.
+ * O "e" passa a "&" e fica colado à palavra seguinte.
+ */
+function letteringLines(text: string) {
+  const words = text
+    .split(/\s+/)
+    .filter(Boolean)
+    .reduce<string[]>((acc, w, i, all) => (all[i - 1] === 'e' ? acc : [...acc, w === 'e' && all[i + 1] ? `&\u00a0${all[i + 1]}` : w]), [])
+  const per = Math.ceil(words.length / 3)
+  return [0, 1, 2].map((i) => words.slice(i * per, i * per + per)).filter((l) => l.length)
 }
 
-/** Título do evento como nos entregáveis: numeral romano grande + lettering em caixa alta. */
+const LOCKUP_MAX = { sm: '0.8rem', md: '1.05rem', lg: '1.6rem' } as const
+
+/**
+ * Título do evento como nos entregáveis: numeral romano + lettering em três linhas fixas.
+ * Escala com a largura disponível (container query) em vez de partir linhas.
+ */
 export function EventLockup({ s, size = 'md', className }: { s: EventSettings; size?: 'sm' | 'md' | 'lg'; className?: string }) {
-  const numeral = size === 'lg' ? 'text-[5.6rem] sm:text-[7rem]' : size === 'md' ? 'text-[4.2rem]' : 'text-5xl'
-  const words = size === 'lg' ? 'text-[1.28rem] sm:text-[1.6rem]' : size === 'md' ? 'text-[1.02rem]' : 'text-[0.8rem]'
-  const title = s.title.replace(/\s+em Angola$/i, '')
+  const lines = letteringLines(`${s.subtitle} sobre ${s.title.replace(/\s+em Angola$/i, '')}`)
   return (
-    <div className={cn('flex items-center gap-4 text-white', className)}>
-      <span aria-hidden className={cn('font-black leading-[0.78] tracking-[-0.06em]', numeral)}>
-        {s.edition}
-      </span>
-      <h1 className={cn('min-w-0 uppercase leading-[1.08] tracking-[0.01em] text-balance', words)}>
-        <span className="sr-only">{s.edition} </span>
-        <Lettering text={`${s.subtitle} sobre ${title}`} />
-      </h1>
+    <div className={cn('@container w-full', className)}>
+      <div
+        className="flex items-center gap-[0.9em] text-white"
+        style={{ fontSize: `min(${LOCKUP_MAX[size]}, 4.6cqi)` }}
+      >
+        <span aria-hidden className="text-[3.55em] leading-[0.78] font-black tracking-[-0.04em]">
+          {s.edition}
+        </span>
+        <h1 className="leading-[1.12] tracking-[0.01em] uppercase">
+          <span className="sr-only">{s.edition} </span>
+          {lines.map((line, i) => (
+            <span key={i} className="block whitespace-nowrap">
+              {line.map((w, j) => (
+                <span key={j} className={LIGHT_WORDS.has(w.replace(/^&\u00a0/, '').toLowerCase()) ? 'font-light' : 'font-extrabold'}>
+                  {j > 0 && ' '}
+                  {w}
+                </span>
+              ))}
+            </span>
+          ))}
+        </h1>
+      </div>
     </div>
   )
 }
 
-/** Faixa de data/local/hora como na capa do evento. */
+/** Faixa de data/local/hora como na capa do evento. Escala como um bloco, nunca parte o texto. */
 export function DateVenue({ s, className }: { s: EventSettings; className?: string }) {
   const d = dateBlock(s.date)
   const year = s.date.slice(0, 4)
   return (
-    <div className={cn('inline-flex max-w-full overflow-hidden rounded-2xl shadow-[0_18px_40px_-18px_rgb(4_40_90/0.55)]', className)}>
-      <div className="flex flex-col justify-center bg-brand-600 px-4 py-3 text-white">
-        <span className="text-[1.45rem] leading-none font-medium tabular">
-          {d.day}.{d.month}
-        </span>
-        <span className="mt-1 text-sm leading-none font-medium">DE {year}</span>
-      </div>
-      <div className="flex min-w-0 items-center gap-4 bg-white px-4 py-3 text-brand-600">
-        <div className="min-w-0">
-          <p className="text-[1.45rem] leading-none font-medium">{EVENT_COPY.venueShort}</p>
-          <p className="mt-1 text-[0.62rem] leading-tight font-medium uppercase">
-            Hotel de Convenções
-            <br />
-            de Talatona
-          </p>
+    <div className={cn('@container w-full', className)}>
+      <div
+        className="inline-flex overflow-hidden rounded-[1em] whitespace-nowrap shadow-[0_1.1em_2.5em_-1.1em_rgb(4_40_90/0.55)]"
+        style={{ fontSize: 'min(1rem, 4cqi)' }}
+      >
+        <div className="flex flex-col justify-center bg-brand-600 px-[1em] py-[0.8em] text-white">
+          <span className="text-[1.45em] leading-none font-medium tabular">
+            {d.day}.{d.month}
+          </span>
+          <span className="mt-[0.3em] text-[0.875em] leading-none font-medium">DE {year}</span>
         </div>
-        <span aria-hidden className="w-px self-stretch bg-brand-600/50" />
-        <span className="text-[1.45rem] leading-none font-medium tabular">{EVENT_COPY.receptionTime.toUpperCase()}</span>
+        <div className="flex items-center gap-[1em] bg-white px-[1em] py-[0.8em] text-brand-600">
+          <div>
+            <p className="text-[1.45em] leading-none font-medium">{EVENT_COPY.venueShort}</p>
+            <p className="mt-[0.35em] text-[0.62em] leading-[1.25] font-medium uppercase">
+              Hotel de Convenções
+              <br />
+              de Talatona
+            </p>
+          </div>
+          <span aria-hidden className="w-px self-stretch bg-brand-600/40" />
+          <span className="text-[1.45em] leading-none font-medium tabular">{EVENT_COPY.receptionTime.toUpperCase()}</span>
+        </div>
       </div>
     </div>
   )

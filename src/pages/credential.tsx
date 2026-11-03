@@ -77,8 +77,7 @@ export default function CredentialPage() {
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[0.7rem] font-bold tracking-[0.14em] text-brand-500 uppercase">Credencial de acesso</p>
-              <h2 className="mt-1 text-[1.4rem] leading-tight font-extrabold text-balance break-words text-brand-900">{guest.name}</h2>
+              <h2 className="text-[1.4rem] leading-tight font-extrabold text-balance break-words text-brand-900">{guest.name}</h2>
               {guest.organization && <p className="mt-0.5 text-sm text-brand-900/70">{guest.organization}</p>}
             </div>
             <span className="shrink-0 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold tracking-wider text-brand-700 uppercase">{CATEGORY_LABEL[guest.category]}</span>
