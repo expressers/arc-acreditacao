@@ -1,7 +1,7 @@
 /**
  * Modo demonstração: responde às chamadas /api/* no próprio browser, com dados fictícios,
  * para mostrar o produto sem backend. Entrar com 1234 (organização ou entrada).
- * Desliga-se com VITE_DEMO=false no build.
+ * Só se liga com VITE_DEMO=true no build; por omissão a app usa o backend real.
  */
 import {
   CATEGORIES,
@@ -15,7 +15,7 @@ import {
   type ScanResult,
 } from '@shared/guests'
 
-export const DEMO = import.meta.env.VITE_DEMO !== 'false'
+export const DEMO = import.meta.env.VITE_DEMO === 'true'
 
 const SECRET = '1234'
 const SESSION_KEY = 'demo.session'

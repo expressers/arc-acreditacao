@@ -40,6 +40,7 @@ bun run dev            # app em :5173 (proxy para a API)
   - Start: `bun run start`
   - Health check: `/api/health`
 - Postgres do Render ligado por `DATABASE_URL`.
-- Variáveis: `SESSION_SECRET`, `ADMIN_PASSWORD` e `DOOR_PIN` (ambos `1234` por omissão), `NODE_ENV=production` e, para email, `SMTP_*`.
+- Variáveis obrigatórias em produção: `SESSION_SECRET` (≥ 32 caracteres), `ADMIN_PASSWORD` (≥ 12) e `DOOR_PIN` (≥ 6); sem elas o servidor não arranca. Para email: `SMTP_*`, e opcionalmente `MAIL_CC` e `MAIL_REPLY_TO`.
+- O modo demonstração só se liga com `VITE_DEMO=true` no build.
 
 As tabelas são criadas automaticamente no arranque.

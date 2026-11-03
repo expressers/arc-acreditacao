@@ -19,7 +19,10 @@ import {
   clearSession,
   csrfGuard,
   issueSession,
+  bindRoleSecret,
+  clientIp,
   loginAllowed,
+  loginFailed,
   loginSucceeded,
   newToken,
   readSession,
@@ -34,17 +37,23 @@ type Env = { Variables: { session: Session } }
 const app = new Hono<Env>()
 
 const PORT = Number(process.env.PORT ?? 3000)
-// Palavra-passe do painel da organização: 1234 por omissão (pedido de 30/10/2026).
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234'
-// PIN da entrada: 1234 por omissão (pedido de 30/10/2026); DOOR_PIN no ambiente sobrepõe-se.
-const DOOR_PIN = process.env.DOOR_PIN || '1234'
+const IS_PROD = process.env.NODE_ENV === 'production'
+// Em desenvolvimento usa-se 1234; em produção as credenciais são obrigatórias e fortes.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (IS_PROD ? '' : '1234')
+const DOOR_PIN = process.env.DOOR_PIN || (IS_PROD ? '' : '1234')
+if (IS_PROD) {
+  const weak = ['1234', '12345', '123456', '0000', '000000', 'password', 'admin']
+  if (ADMIN_PASSWORD.length < 12 || weak.includes(ADMIN_PASSWORD.toLowerCase()))
+    throw new Error('ADMIN_PASSWORD em falta ou fraca (mínimo 12 caracteres).')
+  if (DOOR_PIN.length < 6 || weak.includes(DOOR_PIN))
+    throw new Error('DOOR_PIN em falta ou fraco (mínimo 6 caracteres).')
+}
+bindRoleSecret('admin', ADMIN_PASSWORD)
+bindRoleSecret('door', DOOR_PIN)
 const MAIL_RATE = Math.max(0.5, Number(process.env.MAIL_RATE_PER_SEC ?? 2))
 
 function baseUrl(c: { req: { url: string } }) {
   return process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || new URL(c.req.url).origin
-}
-function clientIp(c: { req: { header: (n: string) => string | undefined } }) {
-  return c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'local'
 }
 
 app.use(
@@ -98,12 +107,14 @@ const loginSchema = z.object({
 
 app.post('/api/login', async (c) => {
   const ip = clientIp(c)
-  if (!loginAllowed(ip)) return c.json({ error: 'Demasiadas tentativas. Aguarde 10 minutos.' }, 429)
   const body = loginSchema.safeParse(await c.req.json().catch(() => null))
   if (!body.success) return c.json({ error: 'Dados inválidos.' }, 400)
   const { role, secret } = body.data
+  if (!loginAllowed(ip, role)) return c.json({ error: 'Demasiadas tentativas. Aguarde 15 minutos.' }, 429)
   const ok = role === 'admin' ? secretMatches(secret, ADMIN_PASSWORD) : secretMatches(secret, DOOR_PIN)
   if (!ok) {
+    loginFailed(ip, role)
+    console.warn(`[auth] login falhado (${role}) de ${ip}`)
     await new Promise((r) => setTimeout(r, 400))
     return c.json({ error: role === 'admin' ? 'Palavra-passe incorrecta.' : 'PIN incorrecto.' }, 401)
   }

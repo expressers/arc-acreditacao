@@ -3,7 +3,12 @@ import QRCode from 'qrcode'
 import { CATEGORY_LABEL, type EventSettings, type Guest } from '../shared/guests.ts'
 import { eventName, longDate, timeRange } from '../shared/format.ts'
 
-const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME } = process.env
+const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME, MAIL_CC, MAIL_REPLY_TO } = process.env
+
+/** Lista de emails separados por vírgula (ex.: MAIL_CC=a@x.ao,b@y.ao). */
+const list = (v?: string) => (v ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+export const mailCc = list(MAIL_CC)
+export const mailReplyTo = list(MAIL_REPLY_TO)
 
 export const mailConfigured = Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASSWORD && SMTP_FROM)
 export const mailFrom = SMTP_FROM ?? null
@@ -104,6 +109,8 @@ export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: st
   await transport().sendMail({
     from: SMTP_SENDER_NAME ? { name: SMTP_SENDER_NAME, address: SMTP_FROM! } : SMTP_FROM,
     to,
+    ...(mailCc.length ? { cc: mailCc } : {}),
+    ...(mailReplyTo.length ? { replyTo: mailReplyTo } : {}),
     subject: `Convite · ${s.edition} ${s.subtitle} sobre ${s.title}`,
     text: inviteText(guest, s, link),
     html: inviteHtml(guest, s, link),
