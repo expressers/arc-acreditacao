@@ -24,10 +24,10 @@ export const DEFAULT_SETTINGS: EventSettings = {
   date: '2026-11-13',
   startTime: '09:00',
   endTime: '14:30',
-  venue: 'Local a confirmar',
+  venue: 'HCTA – Hotel de Convenções de Talatona',
   room: '',
   organizer: 'Autoridade Reguladora da Concorrência',
-  contactEmail: '',
+  contactEmail: 'geral.arc@minfin.gov.ao',
 }
 
 export async function migrate() {
