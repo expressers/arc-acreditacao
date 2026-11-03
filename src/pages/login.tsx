@@ -4,7 +4,7 @@ import { ArrowRight, Loader2, ScanLine, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DateVenue, DotField, EventLockup, WaveLines } from '@/components/brand'
+import { ArcLogo, DateVenue, EventLockup } from '@/components/brand'
 import { useSession, type Role } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -55,16 +55,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col bg-brand-950 md:flex-row">
+    <main className="flex min-h-dvh flex-col bg-brand-700 md:flex-row">
       <section className="arc-sky relative isolate flex flex-1 flex-col justify-between overflow-hidden px-6 pt-[max(env(safe-area-inset-top),2rem)] pb-14 md:px-14 md:py-14">
-        <WaveLines className="absolute inset-0 -z-10 h-full w-full" />
-        <DotField className="absolute right-5 bottom-24 -z-10 h-16 w-28 opacity-70 md:bottom-16" />
-        <p className="text-sm font-semibold text-white/90">Acreditação digital</p>
+        <div className="flex items-center justify-between gap-4">
+          <ArcLogo className="h-9 sm:h-11" />
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">Acreditação</span>
+        </div>
         {settings ? (
           <div className="mt-10 max-w-xl md:mt-0">
             <EventLockup s={settings} size="lg" />
-            <div className="my-6 h-px w-full max-w-md bg-white/45" />
-            <DateVenue s={settings} />
+            <DateVenue s={settings} className="mt-8" />
           </div>
         ) : (
           <div className="mt-10 h-48 max-w-xl animate-pulse rounded-xl bg-white/10" />

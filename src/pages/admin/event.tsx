@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DateVenue, DotField, EventLockup, WaveLines } from '@/components/brand'
+import { DateVenue, EventLockup } from '@/components/brand'
 import { api, errorMessage } from '@/lib/api'
 import { useApi } from '@/lib/hooks'
 import { useSession } from '@/lib/session'
@@ -84,11 +84,8 @@ export default function EventPage() {
           <div>
             <p className="mb-2 text-sm font-semibold text-muted-foreground">Pré-visualização</p>
             <div className="arc-sky relative isolate overflow-hidden rounded-2xl p-6">
-              <WaveLines className="absolute inset-0 -z-10 h-full w-full" />
-              <DotField className="absolute right-4 bottom-4 -z-10 h-12 w-20 opacity-70" />
               <EventLockup s={form} size="md" />
-              <div className="my-5 h-px bg-white/45" />
-              <DateVenue s={form} />
+              <DateVenue s={form} className="mt-6" />
             </div>
           </div>
         </div>

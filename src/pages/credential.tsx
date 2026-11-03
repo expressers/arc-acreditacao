@@ -3,7 +3,7 @@ import { CalendarPlus, CheckCircle2, Download, SunMedium } from 'lucide-react'
 import { CATEGORY_LABEL, type Category, type EventSettings } from '@shared/guests'
 import { longDate, timeRange } from '@shared/format'
 import { Button } from '@/components/ui/button'
-import { DotField, EventLockup, WaveLines, credentialLink, useQrDataUrl } from '@/components/brand'
+import { ArcLogo, EventLockup, credentialLink, useQrDataUrl } from '@/components/brand'
 import { useApi } from '@/lib/hooks'
 
 interface Credential {
@@ -51,7 +51,8 @@ export default function CredentialPage() {
     return (
       <main className="arc-sky grid min-h-dvh place-items-center px-6 text-center text-white">
         <div className="max-w-sm">
-          <h1 className="display text-4xl">Credencial não encontrada</h1>
+          <ArcLogo className="mx-auto mb-8 h-9" />
+          <h1 className="display text-3xl">Credencial não encontrada</h1>
           <p className="mt-3 text-white/85">
             O link pode estar incompleto ou a credencial foi substituída. Confirme o email mais recente que recebeu ou contacte a organização.
           </p>
@@ -65,12 +66,10 @@ export default function CredentialPage() {
 
   return (
     <main className="arc-sky relative isolate min-h-dvh overflow-hidden text-white">
-      <WaveLines className="absolute inset-0 -z-10 h-full w-full" />
-      <DotField className="absolute top-40 right-4 -z-10 h-14 w-24 opacity-60" />
 
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-[max(env(safe-area-inset-top),1.75rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)]">
-        <p className="text-sm font-semibold text-white/90">{s.organizer}</p>
-        <EventLockup s={s} size="md" className="mt-6" />
+        <ArcLogo className="h-9" />
+        <EventLockup s={s} size="md" className="mt-7" />
 
         <section
           aria-label="Credencial de acesso"
@@ -78,11 +77,11 @@ export default function CredentialPage() {
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-brand-700">Credencial pessoal</p>
-              <h2 className="mt-1 text-[1.4rem] leading-tight font-extrabold text-balance break-words">{guest.name}</h2>
+              <p className="text-[0.7rem] font-bold tracking-[0.14em] text-brand-500 uppercase">Credencial de acesso</p>
+              <h2 className="mt-1 text-[1.4rem] leading-tight font-extrabold text-balance break-words text-brand-900">{guest.name}</h2>
               {guest.organization && <p className="mt-0.5 text-sm text-brand-900/70">{guest.organization}</p>}
             </div>
-            <span className="display shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-lg text-white">{CATEGORY_LABEL[guest.category]}</span>
+            <span className="shrink-0 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold tracking-wider text-brand-700 uppercase">{CATEGORY_LABEL[guest.category]}</span>
           </div>
 
           <div className="relative mx-auto mt-5 max-w-[300px]">
@@ -101,9 +100,9 @@ export default function CredentialPage() {
             )}
           </div>
 
-          <div className="mt-5 border-t border-dashed border-brand-100 pt-4 text-sm">
-            <p className="font-bold">{longDate(s.date)}</p>
-            <p className="text-brand-900/75">
+          <div className="mt-5 rounded-2xl bg-brand-50 px-4 py-3 text-sm">
+            <p className="font-bold text-brand-900">{longDate(s.date)}</p>
+            <p className="text-brand-700">
               {timeRange(s.startTime, s.endTime)}
               {where && ` · ${where}`}
             </p>

@@ -17,6 +17,13 @@ export function longDate(isoDate: string) {
   return `${WEEKDAYS[p.wd]}, ${p.d} de ${MONTHS[p.m - 1]} de ${p.y}`
 }
 
+/** "13 de Novembro de 2026" */
+export function dayMonthYear(isoDate: string) {
+  const p = parts(isoDate)
+  if (!p) return isoDate
+  return `${p.d} de ${MONTHS[p.m - 1]} de ${p.y}`
+}
+
 /** { day: "13", month: "NOV" } para o bloco de data do key visual */
 export function dateBlock(isoDate: string) {
   const p = parts(isoDate)

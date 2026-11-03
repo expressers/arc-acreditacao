@@ -4,6 +4,7 @@ import { dateBlock } from '@shared/format'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/session'
 import { cn } from '@/lib/utils'
+import { ArcLogo } from '@/components/brand'
 
 const NAV = [
   { to: '/admin', label: 'Resumo', icon: LayoutGrid, end: true },
@@ -22,8 +23,8 @@ export default function AdminLayout() {
       {/* Lateral (ecrãs largos) */}
       <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-card md:flex">
         <div className="arc-sky relative overflow-hidden px-5 pt-6 pb-5 text-white">
-          <p className="text-xs font-semibold text-white/85">Acreditação</p>
-          <p className="display mt-2 text-2xl">{settings ? `${settings.edition} Conferência ARC` : '—'}</p>
+          <ArcLogo className="h-8" />
+          <p className="display mt-4 text-xl">{settings ? `${settings.edition} Conferência Anual` : '—'}</p>
           {d && <p className="mt-1 text-sm font-semibold tabular">{d.day} {d.month} · {settings?.venue}</p>}
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 p-3">
@@ -59,8 +60,9 @@ export default function AdminLayout() {
       <div className="flex min-h-dvh min-w-0 flex-col">
         {/* Topo (telemóvel) */}
         <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/90 px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 backdrop-blur-md md:hidden">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">{settings ? `${settings.edition} Conferência ARC` : 'Acreditação'}</p>
+          <ArcLogo tone="navy" className="h-7 shrink-0" />
+          <div className="min-w-0 flex-1 border-l pl-3">
+            <p className="truncate text-sm font-bold text-brand-900">{settings ? `${settings.edition} Conferência Anual` : 'Acreditação'}</p>
             {d && <p className="text-xs text-muted-foreground tabular">{d.day} {d.month} · {settings?.venue}</p>}
           </div>
           <Button asChild size="icon-lg" variant="ghost" aria-label="Abrir leitor">

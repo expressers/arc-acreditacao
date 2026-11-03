@@ -1,60 +1,90 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { CATEGORY_LABEL, type Category, type EventSettings } from '@shared/guests'
-import { dateBlock, timeRange } from '@shared/format'
+import { dateBlock } from '@shared/format'
+import { EVENT_COPY } from '@shared/event-copy'
 import { cn } from '@/lib/utils'
 
-/** Título do evento no registo do key visual: condensado, pesado, em caixa alta. */
-export function EventLockup({ s, size = 'md', className }: { s: EventSettings; size?: 'sm' | 'md' | 'lg'; className?: string }) {
-  const title = size === 'lg' ? 'text-[2.85rem] sm:text-6xl' : size === 'md' ? 'text-[2.1rem]' : 'text-2xl'
+/** Logótipo oficial da ARC (extraído dos entregáveis). */
+export function ArcLogo({ tone = 'white', className }: { tone?: 'white' | 'navy'; className?: string }) {
   return (
-    <div className={cn('text-white', className)}>
-      <p className={cn('font-display font-semibold uppercase tracking-wide text-white/90', size === 'sm' ? 'text-sm' : 'text-lg')}>
-        {s.edition} {s.subtitle} sobre
-      </p>
-      <h1 className={cn('display mt-1 text-balance', title)}>{s.title}</h1>
+    <img
+      src={tone === 'white' ? '/brand/arc-logo-white.png' : '/brand/arc-logo-navy.png'}
+      alt="ARC · Autoridade Reguladora da Concorrência"
+      width={955}
+      height={217}
+      className={cn('h-10 w-auto max-w-none shrink-0 self-start object-contain select-none', className)}
+      draggable={false}
+    />
+  )
+}
+
+/** Palavras em peso leve no lettering dos entregáveis ("CONFERÊNCIA anual sobre CONCORRÊNCIA…"). */
+const LIGHT_WORDS = new Set(['anual', 'sobre', 'económica', 'em', 'angola', 'de', 'da', 'do'])
+
+function Lettering({ text }: { text: string }) {
+  return (
+    <>
+      {text
+        .split(/\s+/)
+        .filter(Boolean)
+        // "e" passa a "&" e fica colado à palavra seguinte, como na capa ("& REGULAÇÃO")
+        .reduce<string[]>((acc, w, i, all) => (all[i - 1] === 'e' ? acc : [...acc, w === 'e' && all[i + 1] ? `&\u00a0${all[i + 1]}` : w]), [])
+        .map((w, i) => {
+          const light = LIGHT_WORDS.has(w.replace(/^&\u00a0/, '').toLowerCase())
+          return (
+            <span key={i} className={light ? 'font-light' : 'font-extrabold'}>
+              {w}{' '}
+            </span>
+          )
+        })}
+    </>
+  )
+}
+
+/** Título do evento como nos entregáveis: numeral romano grande + lettering em caixa alta. */
+export function EventLockup({ s, size = 'md', className }: { s: EventSettings; size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const numeral = size === 'lg' ? 'text-[5.6rem] sm:text-[7rem]' : size === 'md' ? 'text-[4.2rem]' : 'text-5xl'
+  const words = size === 'lg' ? 'text-[1.28rem] sm:text-[1.6rem]' : size === 'md' ? 'text-[1.02rem]' : 'text-[0.8rem]'
+  const title = s.title.replace(/\s+em Angola$/i, '')
+  return (
+    <div className={cn('flex items-center gap-4 text-white', className)}>
+      <span aria-hidden className={cn('font-black leading-[0.78] tracking-[-0.06em]', numeral)}>
+        {s.edition}
+      </span>
+      <h1 className={cn('min-w-0 uppercase leading-[1.08] tracking-[0.01em] text-balance', words)}>
+        <span className="sr-only">{s.edition} </span>
+        <Lettering text={`${s.subtitle} sobre ${title}`} />
+      </h1>
     </div>
   )
 }
 
+/** Faixa de data/local/hora como na capa do evento. */
 export function DateVenue({ s, className }: { s: EventSettings; className?: string }) {
   const d = dateBlock(s.date)
+  const year = s.date.slice(0, 4)
   return (
-    <div className={cn('flex items-stretch gap-4 text-white', className)}>
-      <div className="display text-center leading-[0.85]">
-        <div className="text-5xl tabular">{d.day}</div>
-        <div className="text-2xl">{d.month}</div>
+    <div className={cn('inline-flex max-w-full overflow-hidden rounded-2xl shadow-[0_18px_40px_-18px_rgb(4_40_90/0.55)]', className)}>
+      <div className="flex flex-col justify-center bg-brand-600 px-4 py-3 text-white">
+        <span className="text-[1.45rem] leading-none font-medium tabular">
+          {d.day}.{d.month}
+        </span>
+        <span className="mt-1 text-sm leading-none font-medium">DE {year}</span>
       </div>
-      <div className="w-px bg-white/60" aria-hidden />
-      <div className="flex flex-col justify-center gap-0.5 text-sm">
-        <span className="font-bold">{timeRange(s.startTime, s.endTime)}</span>
-        <span className="font-bold uppercase">{s.venue}</span>
-        {s.room && <span className="uppercase text-white/85">({s.room})</span>}
+      <div className="flex min-w-0 items-center gap-4 bg-white px-4 py-3 text-brand-600">
+        <div className="min-w-0">
+          <p className="text-[1.45rem] leading-none font-medium">{EVENT_COPY.venueShort}</p>
+          <p className="mt-1 text-[0.62rem] leading-tight font-medium uppercase">
+            Hotel de Convenções
+            <br />
+            de Talatona
+          </p>
+        </div>
+        <span aria-hidden className="w-px self-stretch bg-brand-600/50" />
+        <span className="text-[1.45rem] leading-none font-medium tabular">{EVENT_COPY.receptionTime.toUpperCase()}</span>
       </div>
     </div>
-  )
-}
-
-/** Pontos em grelha, como no canto do key visual. */
-export function DotField({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('arc-dots pointer-events-none', className)} />
-}
-
-/** Linhas finas de onda (motivo do KV), desenhadas em SVG. */
-export function WaveLines({ className }: { className?: string }) {
-  return (
-    <svg aria-hidden viewBox="0 0 400 300" preserveAspectRatio="none" className={cn('pointer-events-none', className)}>
-      {Array.from({ length: 14 }, (_, i) => (
-        <path
-          key={i}
-          d={`M-20 ${150 + i * 9} C 80 ${60 + i * 11}, 180 ${260 - i * 6}, 420 ${90 + i * 10}`}
-          fill="none"
-          stroke="white"
-          strokeOpacity={0.05 + i * 0.012}
-          strokeWidth="0.8"
-        />
-      ))}
-    </svg>
   )
 }
 
