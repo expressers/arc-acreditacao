@@ -6,7 +6,7 @@ import type { EventSettings, Guest } from '../shared/guests.ts'
 import { dayMonthYear, eventName } from '../shared/format.ts'
 import { EVENT_COPY as C } from '../shared/event-copy.ts'
 
-const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME, MAIL_CC, MAIL_BCC, MAIL_REPLY_TO, MAIL_CONTACTS } =
+const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_SENDER_NAME, MAIL_CC, MAIL_BCC, MAIL_REPLY_TO } =
   process.env
 
 /** Lista de emails separados por vírgula (ex.: MAIL_CC=a@x.ao,b@y.ao). */
@@ -14,22 +14,8 @@ const list = (v?: string) => (v ?? '').split(',').map((s) => s.trim()).filter(Bo
 export const mailCc = list(MAIL_CC)
 export const mailBcc = list(MAIL_BCC)
 export const mailReplyTo = list(MAIL_REPLY_TO)
-/** Emails de contacto da organização mostrados na nota do rodapé. */
-const contacts = list(MAIL_CONTACTS ?? 'eventos.arc@minfin.gov.ao,dac.arc@minfin.gov.ao')
 
-const joinPt = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} ou ${xs[xs.length - 1]}` : xs[0] ?? '')
 
-/** Nota de que o remetente não recebe mensagens, com os contactos da organização. */
-function noReplyNote(html: boolean, organizer: string) {
-  const org = organizer ? `a ${organizer}` : 'a organização'
-  const lead = SMTP_FROM ? `O email ${SMTP_FROM}` : 'Este email'
-  if (!contacts.length) return ''
-  if (!html)
-    return `Nota: ${lead} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${org} através de ${joinPt(contacts)}.`
-  const links = contacts.map((e) => `<a href="mailto:${esc(e)}" style="color:#1176bf">${esc(e)}</a>`)
-  const joined = links.length > 1 ? `${links.slice(0, -1).join(', ')} ou ${links[links.length - 1]}` : links[0]
-  return `<strong>Nota:</strong> ${esc(lead)} destina-se apenas a envios da plataforma e não recebe mensagens. Para qualquer dúvida ou questão, contacte directamente ${esc(org)} através de ${joined}.`
-}
 
 export const mailConfigured = Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASSWORD && SMTP_FROM)
 export const mailFrom = SMTP_FROM ?? null
@@ -121,7 +107,6 @@ const FONT = "font-family:Montserrat,'Helvetica Neue',Helvetica,Arial,sans-serif
 export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img: ImgSrc = cidSrc) {
   const date = dayMonthYear(s.date)
   const program = `${new URL(link).origin}${C.programPath}`
-  const note = noReplyNote(true, s.organizer)
   const ico = (n: string, size = 22) =>
     `<img src="${img(n)}" width="${size}" height="${size}" alt="" style="display:block;width:${size}px;height:${size}px;border:0">`
   return `<!doctype html>
@@ -217,7 +202,6 @@ export function inviteHtml(guest: MailGuest, s: EventSettings, link: string, img
       </td></tr>
     </table>
   </td></tr>
-  ${note ? `<tr><td class="px" style="padding:18px 14px 0;${FONT};font-size:12px;line-height:1.6;color:#6b7a90">${note}</td></tr>` : ''}
 </table>
 </td></tr></table></body></html>`
 }
@@ -245,21 +229,25 @@ function inviteText(guest: MailGuest, s: EventSettings, link: string) {
     '',
     s.organizer,
     `${C.rsvpEmail} · ${C.rsvpPhone} · ${C.website}`,
-    ...(noReplyNote(false, s.organizer) ? ['', noReplyNote(false, s.organizer)] : []),
   ].join('\n')
 }
 
 export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: string, to = guest.email) {
   const link = confirmUrl(baseUrl, guest.token)
-  await transport().sendMail({
+  const message = {
     from: SMTP_SENDER_NAME ? { name: SMTP_SENDER_NAME, address: SMTP_FROM! } : SMTP_FROM,
-    to,
-    ...(mailCc.length ? { cc: mailCc } : {}),
-    ...(mailBcc.length ? { bcc: mailBcc } : {}),
     ...(mailReplyTo.length ? { replyTo: mailReplyTo } : {}),
     subject: `Convite · ${s.edition} ${s.subtitle} sobre ${s.title}`,
     text: inviteText(guest, s, link),
     html: inviteHtml(guest, s, link),
     attachments: emailAttachments(),
-  })
+  }
+  await transport().sendMail({ ...message, to, ...(mailCc.length ? { cc: mailCc } : {}) })
+  // As cópias de acompanhamento seguem numa mensagem à parte: em BCC o convidado ficava no "Para"
+  // e um "Responder a todos" na cópia chegava-lhe. Uma falha na cópia não invalida o convite.
+  if (mailBcc.length) {
+    await transport()
+      .sendMail({ ...message, to: mailBcc })
+      .catch((err) => console.error('[mail] cópia de acompanhamento falhou:', err instanceof Error ? err.message : err))
+  }
 }

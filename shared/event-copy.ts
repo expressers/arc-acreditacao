@@ -13,7 +13,7 @@ export const EVENT_COPY = {
   receptionTime: '08h00',
   sessionTime: '09h00',
   rsvpText:
-    'Agradecemos a confirmação da presença de V. Ex.ª ou a indicação de representante, preferencialmente até 5 de Novembro de 2026.',
+    'Agradecemos a confirmação da presença de V. Ex.ª ou a indicação de representante, antes da data do evento.',
   rsvpEmail: 'geral.arc@minfin.gov.ao',
   rsvpPhone: '(+244) 931 910 970',
   rsvpPhoneHref: '+244931910970',
