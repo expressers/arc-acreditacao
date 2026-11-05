@@ -233,6 +233,7 @@ function inviteText(guest: MailGuest, s: EventSettings, link: string) {
 }
 
 export async function sendInvite(guest: MailGuest, s: EventSettings, baseUrl: string, to = guest.email) {
+  if (!to) throw new Error('Convidado sem email.')
   const link = confirmUrl(baseUrl, guest.token)
   const message = {
     from: SMTP_SENDER_NAME ? { name: SMTP_SENDER_NAME, address: SMTP_FROM! } : SMTP_FROM,

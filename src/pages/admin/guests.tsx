@@ -9,6 +9,7 @@ import {
   Download,
   LogIn,
   MailCheck,
+  MailX,
   Pencil,
   RefreshCw,
   Search,
@@ -33,13 +34,14 @@ import { useApi, useDebounced } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 import { PageTitle } from './layout'
 
-type StatusFilter = 'todos' | 'presentes' | 'ausentes' | 'por-enviar' | 'falhados'
+type StatusFilter = 'todos' | 'presentes' | 'ausentes' | 'por-enviar' | 'falhados' | 'sem-email'
 const STATUS_LABEL: Record<StatusFilter, string> = {
   todos: 'Todos',
   presentes: 'Presentes',
   ausentes: 'Ausentes',
   'por-enviar': 'Por enviar',
   falhados: 'Envio falhou',
+  'sem-email': 'Sem email',
 }
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -48,12 +50,12 @@ async function exportXlsx(guests: Guest[]) {
   const XLSX = await import('xlsx')
   const rows = guests.map((g) => ({
     Nome: g.name,
-    Email: g.email,
+    Email: g.email ?? '',
     Categoria: CATEGORY_LABEL[g.category],
     Instituição: g.organization ?? '',
     Cargo: g.position ?? '',
     'Presença confirmada': g.confirmedAt ? dateTime(g.confirmedAt) : '',
-    Convite: g.inviteStatus === 'sent' ? 'Enviado' : g.inviteStatus === 'failed' ? 'Falhou' : 'Por enviar',
+    Convite: !g.email ? 'Sem email' : g.inviteStatus === 'sent' ? 'Enviado' : g.inviteStatus === 'failed' ? 'Falhou' : 'Por enviar',
     'Entrada às': g.checkedInAt ? dateTime(g.checkedInAt) : '',
     Posto: g.checkedInBy ?? '',
     'Link da credencial': credentialLink(g.token),
@@ -82,10 +84,11 @@ export default function GuestsPage() {
       if (cat !== 'todas' && g.category !== cat) return false
       if (status === 'presentes' && !g.checkedInAt) return false
       if (status === 'ausentes' && g.checkedInAt) return false
-      if (status === 'por-enviar' && g.inviteStatus !== 'pending') return false
+      if (status === 'por-enviar' && (g.inviteStatus !== 'pending' || !g.email)) return false
       if (status === 'falhados' && g.inviteStatus !== 'failed') return false
+      if (status === 'sem-email' && g.email) return false
       if (!needle) return true
-      return fold(`${g.name} ${g.email} ${g.organization ?? ''} ${g.position ?? ''}`).includes(needle)
+      return fold(`${g.name} ${g.email ?? ''} ${g.organization ?? ''} ${g.position ?? ''}`).includes(needle)
     })
   }, [guests, dq, cat, status])
 
@@ -152,7 +155,7 @@ export default function GuestsPage() {
               <button onClick={() => setOpenId(g.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{g.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">{g.organization ?? g.email}</p>
+                  <p className="truncate text-sm text-muted-foreground">{g.organization ?? g.email ?? 'Sem email'}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <CategoryBadge category={g.category} />
@@ -238,6 +241,12 @@ function StatusLine({ g }: { g: Guest }) {
         <Check className="size-3.5" /> {clock(g.checkedInAt)}
       </span>
     )
+  if (!g.email)
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <MailX className="size-3.5" /> Sem email
+      </span>
+    )
   if (g.inviteStatus === 'failed')
     return (
       <span className="flex items-center gap-1 text-xs font-semibold text-destructive">
@@ -288,7 +297,7 @@ function GuestDetails({ g, onChange, onEdit, onDeleted }: { g: Guest; onChange: 
     <div className="overflow-y-auto px-4 pb-[max(env(safe-area-inset-bottom),1.25rem)]">
       <DrawerHeader className="px-0 text-left">
         <DrawerTitle className="text-xl">{g.name}</DrawerTitle>
-        <DrawerDescription className="break-all">{g.email}</DrawerDescription>
+        <DrawerDescription className="break-all">{g.email ?? 'Sem email'}</DrawerDescription>
       </DrawerHeader>
 
       <div className="flex gap-4">
@@ -327,7 +336,7 @@ function GuestDetails({ g, onChange, onEdit, onDeleted }: { g: Guest; onChange: 
           <div>
             <dt className="text-muted-foreground">Convite</dt>
             <dd className={cn('font-medium', g.inviteStatus === 'failed' && 'text-destructive')}>
-              {g.inviteStatus === 'sent' && g.inviteSentAt ? `Enviado ${dateTime(g.inviteSentAt)}` : g.inviteStatus === 'failed' ? 'O envio falhou' : 'Por enviar'}
+              {!g.email ? 'Sem email: partilhe o link' : g.inviteStatus === 'sent' && g.inviteSentAt ? `Enviado ${dateTime(g.inviteSentAt)}` : g.inviteStatus === 'failed' ? 'O envio falhou' : 'Por enviar'}
             </dd>
             {g.inviteError && <dd className="mt-0.5 text-xs text-muted-foreground">{g.inviteError}</dd>}
           </div>
@@ -344,7 +353,7 @@ function GuestDetails({ g, onChange, onEdit, onDeleted }: { g: Guest; onChange: 
         <Button
           variant="outline"
           className="h-11"
-          disabled={busy === 'send'}
+          disabled={busy === 'send' || !g.email}
           onClick={() => run('send', () => api.post('/api/invites/send', { scope: 'ids', ids: [g.id] }), 'Convite em envio.')}
         >
           <Send className="size-4" /> {g.inviteStatus === 'sent' ? 'Reenviar' : 'Enviar'} convite

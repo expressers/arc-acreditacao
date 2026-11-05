@@ -10,6 +10,7 @@ import {
   checkRows,
   cleanText,
   isValidEmail,
+  nameKey,
   normalizeEmail,
   parseCategory,
   tidyName,
@@ -110,7 +111,7 @@ app.get('/api/public/invite/:token', async (c) => {
   const token = c.req.param('token') ?? ''
   if (!TOKEN_RE.test(token)) return c.json({ error: 'Convite inválido.' }, 404)
   const [row] = await sql<
-    { name: string; email: string; category: Category; organization: string | null; position: string | null; confirmed_at: Date | null }[]
+    { name: string; email: string | null; category: Category; organization: string | null; position: string | null; confirmed_at: Date | null }[]
   >`select name, email, category, organization, position, confirmed_at from guests where token = ${token}`
   if (!row) return c.json({ error: 'Convite inválido ou substituído.' }, 404)
   return c.json({
@@ -136,15 +137,19 @@ app.post('/api/public/confirm/:token', async (c) => {
   const name = tidyName(body.data.name)
   const email = normalizeEmail(body.data.email)
   if (name.length < 2) return c.json({ error: 'Indique o nome completo.' }, 400)
-  if (!isValidEmail(email)) return c.json({ error: 'O email não parece válido.' }, 400)
+  if (email && !isValidEmail(email)) return c.json({ error: 'O email não parece válido.' }, 400)
   const organization = cleanText(body.data.organization, MAX_ORG) || null
   const position = cleanText(body.data.position, MAX_POSITION) || null
-  const [self] = await sql<{ id: string }[]>`select id from guests where token = ${token}`
+  const [self] = await sql<{ id: string; email: string | null }[]>`select id, email from guests where token = ${token}`
   if (!self) return c.json({ error: 'Convite inválido ou substituído.' }, 404)
-  const [dupe] = await sql`select 1 from guests where lower(email) = ${email} and id <> ${self.id}`
-  if (dupe) return c.json({ error: 'Este email já tem um convite. Use outro email ou contacte a organização.' }, 409)
+  // Só quem foi importado sem email pode confirmar sem o indicar.
+  if (!email && self.email) return c.json({ error: 'O email não parece válido.' }, 400)
+  if (email) {
+    const [dupe] = await sql`select 1 from guests where lower(email) = ${email} and id <> ${self.id}`
+    if (dupe) return c.json({ error: 'Este email já tem um convite. Use outro email ou contacte a organização.' }, 409)
+  }
   await sql`
-    update guests set name = ${name}, email = ${email}, organization = ${organization}, position = ${position},
+    update guests set name = ${name}, email = ${email || null}, organization = ${organization}, position = ${position},
       confirmed_at = now(), updated_at = now()
     where id = ${self.id}`
   return c.json({ ok: true })
@@ -267,9 +272,10 @@ app.get('/api/stats', admin, async (c) => {
     select category, count(*)::int as total, count(checked_in_at)::int as present,
       count(*) filter (where invite_status = 'sent')::int as sent
     from guests group by category`
-  const [inv] = await sql<{ pending: number; failed: number; confirmed: number }[]>`
-    select count(*) filter (where invite_status = 'pending')::int as pending,
-      count(*) filter (where invite_status = 'failed')::int as failed,
+  const [inv] = await sql<{ pending: number; failed: number; confirmed: number; no_email: number }[]>`
+    select count(*) filter (where invite_status = 'pending' and email is not null)::int as pending,
+      count(*) filter (where invite_status = 'failed' and email is not null)::int as failed,
+      count(*) filter (where email is null)::int as no_email,
       count(confirmed_at)::int as confirmed from guests`
   const recent = await sql<{ name: string; category: Category; at: Date; device: string | null; result: string }[]>`
     select g.name, g.category, s.at, s.device, s.result from scans s join guests g on g.id = s.guest_id
@@ -287,6 +293,7 @@ app.get('/api/stats', admin, async (c) => {
     sent: sum('sent'),
     pending: inv.pending,
     failed: inv.failed,
+    noEmail: inv.no_email,
     confirmed: inv.confirmed,
     perCategory,
     recent: recent.map((r) => ({ ...r, at: r.at.toISOString() })),
@@ -314,11 +321,11 @@ function sanitizeGuest(raw: unknown) {
   const name = tidyName(parsed.data.name)
   const email = normalizeEmail(parsed.data.email)
   if (name.length < 2) return { error: 'Indique o nome completo.' } as const
-  if (!isValidEmail(email)) return { error: 'Email inválido.' } as const
+  if (email && !isValidEmail(email)) return { error: 'Email inválido.' } as const
   return {
     value: {
       name,
-      email,
+      email: email || null,
       category: parsed.data.category,
       organization: cleanText(parsed.data.organization, MAX_ORG) || null,
       position: cleanText(parsed.data.position, MAX_POSITION) || null,
@@ -329,8 +336,10 @@ function sanitizeGuest(raw: unknown) {
 app.post('/api/guests', admin, async (c) => {
   const g = sanitizeGuest(await c.req.json().catch(() => null))
   if ('error' in g) return c.json({ error: g.error }, 400)
-  const [dupe] = await sql`select 1 from guests where lower(email) = ${g.value.email}`
-  if (dupe) return c.json({ error: 'Já existe um convidado com este email.' }, 409)
+  if (g.value.email) {
+    const [dupe] = await sql`select 1 from guests where lower(email) = ${g.value.email}`
+    if (dupe) return c.json({ error: 'Já existe um convidado com este email.' }, 409)
+  }
   const [row] = await sql<GuestRow[]>`
     insert into guests (name, email, category, organization, position, token)
     values (${g.value.name}, ${g.value.email}, ${g.value.category}, ${g.value.organization}, ${g.value.position}, ${newToken()})
@@ -343,12 +352,14 @@ app.patch('/api/guests/:id', admin, async (c) => {
   if (!z.uuid().safeParse(id).success) return c.json({ error: 'Convidado inválido.' }, 400)
   const g = sanitizeGuest(await c.req.json().catch(() => null))
   if ('error' in g) return c.json({ error: g.error }, 400)
-  const [dupe] = await sql`select 1 from guests where lower(email) = ${g.value.email} and id <> ${id}`
-  if (dupe) return c.json({ error: 'Já existe outro convidado com este email.' }, 409)
+  if (g.value.email) {
+    const [dupe] = await sql`select 1 from guests where lower(email) = ${g.value.email} and id <> ${id}`
+    if (dupe) return c.json({ error: 'Já existe outro convidado com este email.' }, 409)
+  }
   const [row] = await sql<GuestRow[]>`
     update guests set name = ${g.value.name}, email = ${g.value.email}, category = ${g.value.category},
       organization = ${g.value.organization}, position = ${g.value.position}, updated_at = now(),
-      invite_status = case when lower(email) <> ${g.value.email} then 'pending' else invite_status end
+      invite_status = case when lower(email) is distinct from ${g.value.email} then 'pending' else invite_status end
     where id = ${id} returning ${GUEST_COLUMNS}`
   return row ? c.json(toGuest(row)) : c.json({ error: 'Convidado não encontrado.' }, 404)
 })
@@ -399,10 +410,10 @@ const importSchema = z.object({
 app.post('/api/guests/import', admin, async (c) => {
   const body = importSchema.safeParse(await c.req.json().catch(() => null))
   if (!body.success) return c.json({ error: 'Ficheiro inválido ou demasiado grande.' }, 400)
-  const existing = new Set(
-    (await sql<{ email: string }[]>`select lower(email) as email from guests`).map((r) => r.email),
-  )
-  const checked = checkRows(body.data.rows, body.data.fallbackCategory, existing)
+  const current = await sql<{ email: string | null; name: string }[]>`select lower(email) as email, name from guests`
+  const existing = new Set(current.flatMap((r) => (r.email ? [r.email] : [])))
+  const existingNames = new Set(current.map((r) => nameKey(r.name)))
+  const checked = checkRows(body.data.rows, body.data.fallbackCategory, existing, existingNames)
   const valid = checked.filter((r) => r.issues.length === 0).map((r) => r.input)
   const [{ count }] = await sql<{ count: number }[]>`select count(*)::int as count from guests`
   if (count + valid.length > MAX_GUESTS) return c.json({ error: `Limite de ${MAX_GUESTS} convidados.` }, 400)
@@ -471,8 +482,8 @@ app.post('/api/invites/send', admin, async (c) => {
   const { scope, ids = [] } = body.data
   const targets =
     scope === 'ids'
-      ? await sql<GuestRow[]>`select ${GUEST_COLUMNS} from guests where id = any(${ids})`
-      : await sql<GuestRow[]>`select ${GUEST_COLUMNS} from guests where invite_status = ${scope} order by created_at`
+      ? await sql<GuestRow[]>`select ${GUEST_COLUMNS} from guests where id = any(${ids}) and email is not null`
+      : await sql<GuestRow[]>`select ${GUEST_COLUMNS} from guests where invite_status = ${scope} and email is not null order by created_at`
   if (!targets.length) return c.json({ error: 'Não há convites para enviar.' }, 400)
   const settings = await getSettings()
   const base = baseUrl(c)

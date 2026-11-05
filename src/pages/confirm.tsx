@@ -11,7 +11,7 @@ import { api, errorMessage } from '@/lib/api'
 import { useApi } from '@/lib/hooks'
 
 interface Invite {
-  guest: { name: string; email: string; category: Category; organization: string | null; position: string | null }
+  guest: { name: string; email: string | null; category: Category; organization: string | null; position: string | null }
   confirmedAt: string | null
   settings: EventSettings
 }
@@ -28,14 +28,16 @@ export default function ConfirmPage() {
   useEffect(() => {
     if (!data) return
     const g = data.guest
-    setForm({ name: g.name, email: g.email, organization: g.organization ?? '', position: g.position ?? '' })
+    setForm({ name: g.name, email: g.email ?? '', organization: g.organization ?? '', position: g.position ?? '' })
   }, [data])
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!isValidEmail(normalizeEmail(form.email))) {
+    const email = normalizeEmail(form.email)
+    // Quem foi importado sem email pode confirmar sem o indicar.
+    if ((email || data?.guest.email) && !isValidEmail(email)) {
       setFormError('O email não parece válido.')
       return
     }
@@ -71,7 +73,7 @@ export default function ConfirmPage() {
     )
   }
 
-  const changedPerson = data.guest.email !== normalizeEmail(form.email) && form.email.trim() !== ''
+  const changedPerson = Boolean(data.guest.email) && data.guest.email !== normalizeEmail(form.email) && form.email.trim() !== ''
 
   return (
     <main className="arc-sky relative isolate min-h-dvh overflow-hidden text-white">
@@ -108,8 +110,8 @@ export default function ConfirmPage() {
               <Input id="c-name" value={form.name} onChange={set('name')} required minLength={2} maxLength={120} autoComplete="name" className="h-12 text-base" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="c-email">Email</Label>
-              <Input id="c-email" type="email" inputMode="email" value={form.email} onChange={set('email')} required autoComplete="email" className="h-12 text-base" />
+              <Label htmlFor="c-email">{data.guest.email ? 'Email' : 'Email (opcional)'}</Label>
+              <Input id="c-email" type="email" inputMode="email" value={form.email} onChange={set('email')} required={Boolean(data.guest.email)} autoComplete="email" className="h-12 text-base" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c-org">Instituição</Label>

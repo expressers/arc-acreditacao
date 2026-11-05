@@ -24,7 +24,8 @@ export type InviteStatus = 'pending' | 'sent' | 'failed'
 export interface Guest {
   id: string
   name: string
-  email: string
+  /** Pode faltar: quem não tem email não recebe convite, mas tem credencial e QR. */
+  email: string | null
   category: Category
   organization: string | null
   /** Cargo, indicado pelo convidado na confirmação (ou importado). */
@@ -114,13 +115,13 @@ export function parseCategory(value: unknown, fallback: Category = 'convidado'):
 
 export interface GuestInput {
   name: string
-  email: string
+  email: string | null
   category: Category
   organization: string | null
   position: string | null
 }
 
-export type RowIssue = 'nome em falta' | 'email inválido' | 'email repetido' | 'categoria desconhecida'
+export type RowIssue = 'nome em falta' | 'nome repetido' | 'email inválido' | 'email repetido' | 'categoria desconhecida'
 
 export interface CheckedRow {
   line: number
@@ -128,13 +129,29 @@ export interface CheckedRow {
   issues: RowIssue[]
 }
 
-/** Valida uma lista crua (do Excel ou do formulário). */
+/** Chave para comparar nomes, sem acentos nem diferenças de caixa. */
+export function nameKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Valida uma lista crua (do Excel ou do formulário). O email é opcional; sem ele
+ * não há nada que identifique a pessoa, por isso as linhas sem email comparam-se
+ * pelo nome, para que importar a mesma lista duas vezes não duplique convidados.
+ */
 export function checkRows(
   rows: Array<{ line: number; name: unknown; email: unknown; category?: unknown; organization?: unknown; position?: unknown }>,
   fallback: Category,
   existingEmails: Set<string> = new Set(),
+  existingNames: Set<string> = new Set(),
 ): CheckedRow[] {
   const seen = new Set<string>()
+  const seenNames = new Set<string>()
   return rows.map((row) => {
     const issues: RowIssue[] = []
     const name = tidyName(row.name)
@@ -143,11 +160,15 @@ export function checkRows(
     const organization = cleanText(row.organization, MAX_ORG) || null
     const position = cleanText(row.position, MAX_POSITION) || null
     if (name.length < 2) issues.push('nome em falta')
-    if (!isValidEmail(email)) issues.push('email inválido')
+    const key = nameKey(name)
+    if (!email) {
+      if (name.length >= 2 && (seenNames.has(key) || existingNames.has(key))) issues.push('nome repetido')
+    } else if (!isValidEmail(email)) issues.push('email inválido')
     else if (seen.has(email) || existingEmails.has(email)) issues.push('email repetido')
     if (!category) issues.push('categoria desconhecida')
     if (isValidEmail(email)) seen.add(email)
-    return { line: row.line, input: { name, email, category: category ?? fallback, organization, position }, issues }
+    seenNames.add(key)
+    return { line: row.line, input: { name, email: email || null, category: category ?? fallback, organization, position }, issues }
   })
 }
 

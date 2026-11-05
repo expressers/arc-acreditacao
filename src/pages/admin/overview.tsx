@@ -15,6 +15,7 @@ export interface Stats {
   sent: number
   pending: number
   failed: number
+  noEmail: number
   perCategory: Record<Category, { total: number; present: number; sent: number }>
   recent: { name: string; category: Category; at: string; device: string | null }[]
   mail: { configured: boolean; from: string | null }
@@ -50,7 +51,7 @@ export default function OverviewPage() {
         <section className="rounded-2xl border border-dashed bg-card px-6 py-12 text-center">
           <h2 className="text-lg font-bold">A lista de convidados está vazia</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Importe o Excel com nome e email (e, se tiver, a categoria) ou adicione os convidados um a um.
+            Importe o Excel com os nomes (e, se tiver, o email e a categoria) ou adicione os convidados um a um.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
             <Button asChild className="h-11 px-5">

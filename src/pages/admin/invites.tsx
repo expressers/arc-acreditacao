@@ -95,6 +95,12 @@ export default function InvitesPage() {
                 ))}
               </dl>
 
+              {s.noEmail > 0 && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {s.noEmail === 1 ? '1 convidado sem email não recebe' : `${s.noEmail} convidados sem email não recebem`} convite. Partilhe o link da credencial a partir da lista de convidados.
+                </p>
+              )}
+
               {live?.running ? (
                 <div className="mt-5" aria-live="polite">
                   <div className="flex justify-between text-sm">

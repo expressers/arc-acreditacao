@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type DragEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Loader2, Upload, X } from 'lucide-react'
-import { CATEGORIES, CATEGORY_LABEL, MAX_GUESTS, checkRows, type Category, type CheckedRow, type Guest } from '@shared/guests'
+import { CATEGORIES, CATEGORY_LABEL, MAX_GUESTS, checkRows, nameKey, type Category, type CheckedRow, type Guest } from '@shared/guests'
 import { Button } from '@/components/ui/button'
 import { CategoryBadge } from '@/components/brand'
 import { api, errorMessage } from '@/lib/api'
@@ -33,16 +33,22 @@ async function parseFile(file: File): Promise<{ rows: RawRow[]; columns: string[
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false, dense: true })
   const sheet = wb.Sheets[wb.SheetNames[0]]
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: '', raw: false })
-  // O cabeçalho é a primeira linha que tenha uma coluna de email reconhecível.
-  const headerIdx = matrix.findIndex((r) => detectColumns(r.map(String)).email >= 0)
-  if (headerIdx < 0) throw new Error('Não encontrei uma coluna de email. A primeira linha deve ter os títulos (Nome, Email, Categoria).')
+  // O cabeçalho é a primeira linha com uma coluna de email; a lista pode nem a ter, e aí vale a do nome.
+  let headerIdx = matrix.findIndex((r) => detectColumns(r.map(String)).email >= 0)
+  if (headerIdx < 0) {
+    headerIdx = matrix.findIndex((r) => {
+      const c = detectColumns(r.map(String))
+      return c.name >= 0 || c.first >= 0
+    })
+  }
+  if (headerIdx < 0) throw new Error('Não encontrei a coluna do nome. A primeira linha deve ter os títulos (Nome, Email, Categoria).')
   const header = matrix[headerIdx].map(String)
   const col = detectColumns(header)
   if (col.name < 0 && col.first < 0) throw new Error('Não encontrei a coluna do nome.')
   const rows = matrix.slice(headerIdx + 1).map((r, i) => ({
     line: headerIdx + i + 2,
     name: col.name >= 0 ? r[col.name] : `${r[col.first] ?? ''} ${col.last >= 0 ? (r[col.last] ?? '') : ''}`,
-    email: r[col.email],
+    email: col.email >= 0 ? (r[col.email] ?? '') : '',
     category: col.category >= 0 ? r[col.category] : undefined,
     organization: col.organization >= 0 ? r[col.organization] : undefined,
     position: col.position >= 0 ? r[col.position] : undefined,
@@ -79,10 +85,15 @@ export default function ImportPage() {
   const [sending, setSending] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
-  const existingEmails = useMemo(() => new Set((existing.data ?? []).map((g) => g.email)), [existing.data])
-  const checked: CheckedRow[] = useMemo(() => (raw ? checkRows(raw, fallback, existingEmails) : []), [raw, fallback, existingEmails])
+  const existingEmails = useMemo(() => new Set((existing.data ?? []).flatMap((g) => (g.email ? [g.email] : []))), [existing.data])
+  const existingNames = useMemo(() => new Set((existing.data ?? []).map((g) => nameKey(g.name))), [existing.data])
+  const checked: CheckedRow[] = useMemo(
+    () => (raw ? checkRows(raw, fallback, existingEmails, existingNames) : []),
+    [raw, fallback, existingEmails, existingNames],
+  )
   const valid = checked.filter((r) => r.issues.length === 0)
   const invalid = checked.filter((r) => r.issues.length > 0)
+  const noEmail = valid.filter((r) => !r.input.email).length
   const byCat = CATEGORIES.map((c) => ({ c, n: valid.filter((r) => r.input.category === c).length }))
 
   async function pick(f: File | undefined) {
@@ -137,7 +148,7 @@ export default function ImportPage() {
     <>
       <PageTitle
         title="Importar lista"
-        description="Excel (.xlsx) ou CSV com uma linha de títulos. Basta Nome e Email; Categoria, Instituição e Cargo são opcionais."
+        description="Excel (.xlsx) ou CSV com uma linha de títulos. Basta o Nome; Email, Categoria, Instituição e Cargo são opcionais. Quem não tiver email não recebe convite, mas fica com credencial e QR Code."
         actions={
           <Button variant="outline" className="h-10" onClick={() => void downloadTemplate()}>
             <FileSpreadsheet className="size-4" /> Modelo
@@ -204,6 +215,11 @@ export default function ImportPage() {
                   {CATEGORY_LABEL[c]}: <strong className="text-foreground tabular">{n}</strong>
                 </span>
               ))}
+              {noEmail > 0 && (
+                <span>
+                  Sem email: <strong className="text-foreground tabular">{noEmail}</strong>
+                </span>
+              )}
             </div>
 
             <fieldset className="mt-5">
@@ -257,7 +273,7 @@ export default function ImportPage() {
                 <li key={r.line} className="flex items-center gap-3 px-5 py-2.5 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{r.input.name}</p>
-                    <p className="truncate text-muted-foreground">{r.input.email}</p>
+                    <p className="truncate text-muted-foreground">{r.input.email ?? 'Sem email'}</p>
                   </div>
                   <CategoryBadge category={r.input.category} />
                 </li>

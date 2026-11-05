@@ -18,7 +18,8 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!isValidEmail(normalizeEmail(email))) {
+    const cleanEmail = normalizeEmail(email)
+    if (cleanEmail && !isValidEmail(cleanEmail)) {
       setError('O email não parece válido.')
       return
     }
@@ -42,8 +43,8 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
         <Input id="g-name" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={120} autoComplete="off" className="h-12 text-base" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="g-email">Email</Label>
-        <Input id="g-email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" className="h-12 text-base" />
+        <Label htmlFor="g-email">Email (opcional)</Label>
+        <Input id="g-email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" className="h-12 text-base" />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="g-org">Instituição (opcional)</Label>
@@ -72,7 +73,7 @@ export function GuestForm({ guest, onSaved }: { guest?: Guest; onSaved: (g: Gues
           ))}
         </div>
       </fieldset>
-      {guest && normalizeEmail(email) !== guest.email && (
+      {guest && normalizeEmail(email) && normalizeEmail(email) !== guest.email && (
         <p className="text-sm text-muted-foreground">Ao mudar o email, o convite volta a ficar “por enviar”.</p>
       )}
       {error && (

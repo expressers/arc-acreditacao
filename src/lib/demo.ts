@@ -6,6 +6,7 @@
 import {
   CATEGORIES,
   checkRows,
+  nameKey,
   normalizeEmail,
   tidyName,
   tokenFromQr,
@@ -157,9 +158,9 @@ function route(method: string, path: string, body: any): Reply {
     const t = decodeURIComponent(p.split('/').pop() ?? '')
     const g = guests.find((x) => x.token === t) ?? guests[0]
     const name = tidyName(body?.name)
-    const email = normalizeEmail(body?.email)
+    const email = normalizeEmail(body?.email) || null
     if (name.length < 2) return fail('Indique o nome completo.')
-    if (guests.some((x) => x.email === email && x.id !== g.id)) return fail('Este email já tem um convite. Use outro email ou contacte a organização.', 409)
+    if (email && guests.some((x) => x.email === email && x.id !== g.id)) return fail('Este email já tem um convite. Use outro email ou contacte a organização.', 409)
     Object.assign(g, {
       name,
       email,
@@ -238,8 +239,9 @@ function route(method: string, path: string, body: any): Reply {
       total: guests.length,
       present: guests.filter((g) => g.checkedInAt).length,
       sent: guests.filter((g) => g.inviteStatus === 'sent').length,
-      pending: guests.filter((g) => g.inviteStatus === 'pending').length,
-      failed: guests.filter((g) => g.inviteStatus === 'failed').length,
+      pending: guests.filter((g) => g.inviteStatus === 'pending' && g.email).length,
+      failed: guests.filter((g) => g.inviteStatus === 'failed' && g.email).length,
+      noEmail: guests.filter((g) => !g.email).length,
       confirmed: guests.filter((g) => g.confirmedAt).length,
       perCategory,
       recent,
@@ -251,9 +253,9 @@ function route(method: string, path: string, body: any): Reply {
   if (p === '/api/guests' && method === 'GET') return ok([...guests].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
   if (p === '/api/guests' && method === 'POST') {
     const name = tidyName(body?.name)
-    const email = normalizeEmail(body?.email)
+    const email = normalizeEmail(body?.email) || null
     if (name.length < 2) return fail('Indique o nome completo.')
-    if (guests.some((g) => g.email === email)) return fail('Já existe um convidado com este email.', 409)
+    if (email && guests.some((g) => g.email === email)) return fail('Já existe um convidado com este email.', 409)
     const g: Guest = {
       id: uuid(),
       name,
@@ -274,7 +276,12 @@ function route(method: string, path: string, body: any): Reply {
     return ok(g, 201)
   }
   if (p === '/api/guests/import' && method === 'POST') {
-    const checked = checkRows(body?.rows ?? [], body?.fallbackCategory ?? 'convidado', new Set(guests.map((g) => g.email)))
+    const checked = checkRows(
+      body?.rows ?? [],
+      body?.fallbackCategory ?? 'convidado',
+      new Set(guests.flatMap((g) => (g.email ? [g.email] : []))),
+      new Set(guests.map((g) => nameKey(g.name))),
+    )
     const valid = checked.filter((r) => r.issues.length === 0)
     for (const r of valid)
       guests.unshift({
@@ -312,8 +319,8 @@ function route(method: string, path: string, body: any): Reply {
       return ok({ ok: true })
     }
     if (method === 'PATCH') {
-      const email = normalizeEmail(body?.email)
-      if (guests.some((x) => x.email === email && x.id !== g.id)) return fail('Já existe outro convidado com este email.', 409)
+      const email = normalizeEmail(body?.email) || null
+      if (email && guests.some((x) => x.email === email && x.id !== g.id)) return fail('Já existe outro convidado com este email.', 409)
       Object.assign(g, {
         name: tidyName(body?.name),
         email,
@@ -337,7 +344,7 @@ function route(method: string, path: string, body: any): Reply {
   if (p === '/api/invites/send' && method === 'POST') {
     const scope = body?.scope
     const targets =
-      scope === 'ids' ? guests.filter((g) => (body?.ids ?? []).includes(g.id)) : guests.filter((g) => g.inviteStatus === scope)
+      (scope === 'ids' ? guests.filter((g) => (body?.ids ?? []).includes(g.id)) : guests.filter((g) => g.inviteStatus === scope)).filter((g) => g.email)
     if (!targets.length) return fail('Não há convites para enviar.')
     const at = new Date().toISOString()
     for (const g of targets) Object.assign(g, { inviteStatus: 'sent', inviteSentAt: at, inviteError: null })

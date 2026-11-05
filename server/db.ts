@@ -49,6 +49,8 @@ export async function migrate() {
       updated_at timestamptz not null default now()
     )`
   await sql`create unique index if not exists guests_email_key on guests (lower(email))`
+  // Email opcional. O índice único acima não colide em NULL, por isso aceita vários convidados sem email.
+  await sql`alter table guests alter column email drop not null`
   await sql`alter table guests add column if not exists position text`
   await sql`alter table guests add column if not exists confirmed_at timestamptz`
   await sql`create index if not exists guests_checked_in_idx on guests (checked_in_at desc nulls last)`
@@ -72,7 +74,7 @@ export async function migrate() {
 type GuestRow = {
   id: string
   name: string
-  email: string
+  email: string | null
   category: Guest['category']
   organization: string | null
   position: string | null

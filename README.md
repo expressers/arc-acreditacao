@@ -2,7 +2,7 @@
 
 PWA mobile-first para a **VII Conferência Anual sobre Concorrência e Regulação Económica em Angola** (ARC, 13 de Novembro de 2026), produzida para a Young.
 
-- Importa a lista de convidados (Excel/CSV com nome e email; categoria e instituição opcionais), com limpeza e validação de dados.
+- Importa a lista de convidados (Excel/CSV com nome; email, categoria e instituição opcionais), com limpeza e validação de dados. Quem não tem email não recebe convite, mas fica com credencial e QR; as linhas sem email comparam-se pelo nome para não duplicar.
 - Três categorias: **Convidados, Oradores, Imprensa**.
 - Cada convidado recebe um **token aleatório** (144 bits) e uma credencial digital com **QR Code individual** (`/c/<token>`).
 - Envio dos convites por **email** (SMTP), com o QR embutido e o link da credencial; envio em lote com progresso, reenvio e teste.
