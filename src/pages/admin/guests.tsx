@@ -24,6 +24,7 @@ import { CATEGORIES, CATEGORY_LABEL, CATEGORY_PLURAL, type Category, type Guest,
 import { clock, dateTime } from '@shared/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { CategoryBadge, QrImage, credentialLink } from '@/components/brand'
@@ -35,15 +36,30 @@ import { cn } from '@/lib/utils'
 import { PageTitle } from './layout'
 
 type StatusFilter = 'todos' | 'confirmados' | 'por-confirmar' | 'presentes' | 'ausentes' | 'por-enviar' | 'falhados' | 'sem-email'
-const STATUS_LABEL: Record<StatusFilter, string> = {
-  todos: 'Todos',
-  confirmados: 'Confirmados',
-  'por-confirmar': 'Por confirmar',
-  presentes: 'Presentes',
-  ausentes: 'Ausentes',
-  'por-enviar': 'Por enviar',
-  falhados: 'Envio falhou',
-  'sem-email': 'Sem email',
+const STATUS_GROUPS: { label: string; items: { value: Exclude<StatusFilter, 'todos'>; label: string }[] }[] = [
+  { label: 'Confirmação', items: [{ value: 'confirmados', label: 'Confirmados' }, { value: 'por-confirmar', label: 'Por confirmar' }] },
+  { label: 'Presença no dia', items: [{ value: 'presentes', label: 'Presentes' }, { value: 'ausentes', label: 'Ausentes' }] },
+  {
+    label: 'Convite',
+    items: [
+      { value: 'por-enviar', label: 'Por enviar' },
+      { value: 'falhados', label: 'Envio falhou' },
+      { value: 'sem-email', label: 'Sem email' },
+    ],
+  },
+]
+
+function matchesStatus(g: Guest, status: StatusFilter) {
+  switch (status) {
+    case 'confirmados': return !!g.confirmedAt
+    case 'por-confirmar': return !g.confirmedAt
+    case 'presentes': return !!g.checkedInAt
+    case 'ausentes': return !g.checkedInAt
+    case 'por-enviar': return g.inviteStatus === 'pending' && !!g.email
+    case 'falhados': return g.inviteStatus === 'failed'
+    case 'sem-email': return !g.email
+    default: return true
+  }
 }
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -80,21 +96,22 @@ export default function GuestsPage() {
   const [editing, setEditing] = useState<Guest | 'new' | null>(params.get('novo') ? 'new' : null)
 
   const guests = data ?? []
+  const inCategory = useMemo(() => (cat === 'todas' ? guests : guests.filter((g) => g.category === cat)), [guests, cat])
+  const statusCount = useMemo(() => {
+    const counts = {} as Record<StatusFilter, number>
+    for (const group of STATUS_GROUPS) for (const it of group.items) counts[it.value] = inCategory.filter((g) => matchesStatus(g, it.value)).length
+    counts.todos = inCategory.length
+    return counts
+  }, [inCategory])
   const filtered = useMemo(() => {
     const needle = fold(dq.trim())
-    return guests.filter((g) => {
-      if (cat !== 'todas' && g.category !== cat) return false
-      if (status === 'confirmados' && !g.confirmedAt) return false
-      if (status === 'por-confirmar' && g.confirmedAt) return false
-      if (status === 'presentes' && !g.checkedInAt) return false
-      if (status === 'ausentes' && g.checkedInAt) return false
-      if (status === 'por-enviar' && (g.inviteStatus !== 'pending' || !g.email)) return false
-      if (status === 'falhados' && g.inviteStatus !== 'failed') return false
-      if (status === 'sem-email' && g.email) return false
+    return inCategory.filter((g) => {
+      if (!matchesStatus(g, status)) return false
       if (!needle) return true
       return fold(`${g.name} ${g.email ?? ''} ${g.organization ?? ''} ${g.position ?? ''}`).includes(needle)
     })
-  }, [guests, dq, cat, status])
+  }, [inCategory, dq, status])
+  const filtersActive = cat !== 'todas' || status !== 'todos'
 
   const open = guests.find((g) => g.id === openId) ?? null
   const upsert = (g: Guest) => setData((list) => (list ? (list.some((x) => x.id === g.id) ? list.map((x) => (x.id === g.id ? g : x)) : [g, ...list]) : [g]))
@@ -127,18 +144,61 @@ export default function GuestsPage() {
             </button>
           )}
         </div>
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
-          {(['todas', ...CATEGORIES] as const).map((c) => (
-            <Chip key={c} active={cat === c} onClick={() => setCat(c)}>
-              {c === 'todas' ? 'Todas' : CATEGORY_PLURAL[c]}
-            </Chip>
-          ))}
-          <span className="mx-1 w-px shrink-0 bg-border" />
-          {(Object.keys(STATUS_LABEL) as StatusFilter[]).map((s) => (
-            <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
-              {STATUS_LABEL[s]}
-            </Chip>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={cat} onValueChange={(v) => setCat(v as Category | 'todas')}>
+            <SelectTrigger aria-label="Categoria" className="h-10 min-w-0 flex-1 bg-card sm:flex-none sm:min-w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="todas">Todas as categorias</SelectItem>
+              <SelectSeparator />
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {CATEGORY_PLURAL[c]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+            <SelectTrigger aria-label="Estado" className="h-10 min-w-0 flex-1 bg-card sm:flex-none sm:min-w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start" className="min-w-56">
+              <SelectItem value="todos">
+                <span>Todos os estados</span>
+                <Count n={statusCount.todos} />
+              </SelectItem>
+              {STATUS_GROUPS.map((group) => (
+                <SelectGroup key={group.label}>
+                  <SelectSeparator />
+                  <SelectLabel>{group.label}</SelectLabel>
+                  {group.items.map((it) => (
+                    <SelectItem key={it.value} value={it.value}>
+                      <span>{it.label}</span>
+                      <Count n={statusCount[it.value]} />
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+          {filtersActive && (
+            <Button
+              variant="ghost"
+              className="h-10 px-3 text-muted-foreground"
+              onClick={() => {
+                setCat('todas')
+                setStatus('todos')
+              }}
+            >
+              <X className="size-4" /> Limpar
+            </Button>
+          )}
+          {data && (filtersActive || dq.trim()) && (
+            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+              {filtered.length} {filtered.length === 1 ? 'resultado' : 'resultados'}
+            </span>
+          )}
         </div>
       </div>
 
@@ -223,19 +283,8 @@ export default function GuestsPage() {
   )
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'h-8 shrink-0 rounded-full border px-3 text-xs font-semibold whitespace-nowrap transition-colors',
-        active ? 'border-foreground bg-foreground text-background' : 'bg-card text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  )
+function Count({ n }: { n: number }) {
+  return <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
 }
 
 function StatusLine({ g }: { g: Guest }) {
