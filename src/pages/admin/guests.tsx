@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Clock,
   Copy,
@@ -113,6 +115,18 @@ export default function GuestsPage() {
   }, [inCategory, dq, status])
   const filtersActive = cat !== 'todas' || status !== 'todos'
 
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  useEffect(() => setPage(1), [cat, status, dq, pageSize])
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const current = Math.min(page, pageCount)
+  const pageStart = (current - 1) * pageSize
+  const visible = filtered.slice(pageStart, pageStart + pageSize)
+  const goTo = (p: number) => {
+    setPage(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const open = guests.find((g) => g.id === openId) ?? null
   const upsert = (g: Guest) => setData((list) => (list ? (list.some((x) => x.id === g.id) ? list.map((x) => (x.id === g.id ? g : x)) : [g, ...list]) : [g]))
 
@@ -219,8 +233,9 @@ export default function GuestsPage() {
           {guests.length ? 'Nenhum convidado corresponde aos filtros.' : 'Ainda não há convidados. Importe o Excel ou adicione à mão.'}
         </p>
       ) : (
+        <>
         <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
-          {filtered.map((g) => (
+          {visible.map((g) => (
             <li key={g.id}>
               <button onClick={() => setOpenId(g.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted">
                 <div className="min-w-0 flex-1">
@@ -235,6 +250,17 @@ export default function GuestsPage() {
             </li>
           ))}
         </ul>
+        <Pagination
+          page={current}
+          pageCount={pageCount}
+          from={pageStart + 1}
+          to={pageStart + visible.length}
+          total={filtered.length}
+          pageSize={pageSize}
+          onPage={goTo}
+          onPageSize={setPageSize}
+        />
+        </>
       )}
 
       <Drawer open={Boolean(open)} onOpenChange={(o) => !o && setOpenId(null)}>
@@ -286,6 +312,57 @@ export default function GuestsPage() {
         </DrawerContent>
       </Drawer>
     </>
+  )
+}
+
+const PAGE_SIZES = [25, 50, 100]
+
+function Pagination(props: {
+  page: number
+  pageCount: number
+  from: number
+  to: number
+  total: number
+  pageSize: number
+  onPage: (p: number) => void
+  onPageSize: (n: number) => void
+}) {
+  const { page, pageCount, from, to, total, pageSize, onPage, onPageSize } = props
+  if (total <= PAGE_SIZES[0]) return null
+  return (
+    <nav aria-label="Paginação" className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="tabular-nums">
+          {from}–{to} de {total}
+        </span>
+        <span aria-hidden>·</span>
+        <Select value={String(pageSize)} onValueChange={(v) => onPageSize(Number(v))}>
+          <SelectTrigger aria-label="Convidados por página" size="sm" className="bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectGroup>
+              {PAGE_SIZES.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n} por página
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Button variant="outline" size="icon" className="size-9" aria-label="Página anterior" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="min-w-24 text-center text-muted-foreground tabular-nums">
+          Página {page} de {pageCount}
+        </span>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Página seguinte" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </nav>
   )
 }
 
