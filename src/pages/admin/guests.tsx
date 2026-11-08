@@ -146,34 +146,40 @@ export default function GuestsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={cat} onValueChange={(v) => setCat(v as Category | 'todas')}>
-            <SelectTrigger aria-label="Categoria" className="h-10 min-w-0 flex-1 bg-card sm:flex-none sm:min-w-44">
+            <SelectTrigger aria-label="Categoria" className="min-w-0 flex-1 bg-card data-[size=default]:h-10 sm:flex-none sm:min-w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" align="start">
-              <SelectItem value="todas">Todas as categorias</SelectItem>
+              <SelectGroup>
+                <SelectItem value="todas">Todas as categorias</SelectItem>
+              </SelectGroup>
               <SelectSeparator />
-              {CATEGORIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {CATEGORY_PLURAL[c]}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {CATEGORY_PLURAL[c]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-            <SelectTrigger aria-label="Estado" className="h-10 min-w-0 flex-1 bg-card sm:flex-none sm:min-w-52">
+            <SelectTrigger aria-label="Estado" className="min-w-0 flex-1 bg-card data-[size=default]:h-10 sm:flex-none sm:min-w-56">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent position="popper" align="start" className="min-w-56">
-              <SelectItem value="todos">
-                <span>Todos os estados</span>
-                <Count n={statusCount.todos} />
-              </SelectItem>
+            <SelectContent position="popper" align="start" className="min-w-60">
+              <SelectGroup>
+                <SelectItem value="todos" className={countRow}>
+                  <span>Todos os estados</span>
+                  <Count n={statusCount.todos} />
+                </SelectItem>
+              </SelectGroup>
               {STATUS_GROUPS.map((group) => (
                 <SelectGroup key={group.label}>
                   <SelectSeparator />
                   <SelectLabel>{group.label}</SelectLabel>
                   {group.items.map((it) => (
-                    <SelectItem key={it.value} value={it.value}>
+                    <SelectItem key={it.value} value={it.value} className={countRow}>
                       <span>{it.label}</span>
                       <Count n={statusCount[it.value]} />
                     </SelectItem>
@@ -283,8 +289,10 @@ export default function GuestsPage() {
   )
 }
 
+// Nos itens do menu a contagem encosta à direita; no botão fica ao lado do rótulo.
+const countRow = '*:[span]:last:flex-1'
 function Count({ n }: { n: number }) {
-  return <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
+  return <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">{n}</span>
 }
 
 function StatusLine({ g }: { g: Guest }) {
