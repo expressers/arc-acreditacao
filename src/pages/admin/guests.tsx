@@ -34,9 +34,11 @@ import { useApi, useDebounced } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 import { PageTitle } from './layout'
 
-type StatusFilter = 'todos' | 'presentes' | 'ausentes' | 'por-enviar' | 'falhados' | 'sem-email'
+type StatusFilter = 'todos' | 'confirmados' | 'por-confirmar' | 'presentes' | 'ausentes' | 'por-enviar' | 'falhados' | 'sem-email'
 const STATUS_LABEL: Record<StatusFilter, string> = {
   todos: 'Todos',
+  confirmados: 'Confirmados',
+  'por-confirmar': 'Por confirmar',
   presentes: 'Presentes',
   ausentes: 'Ausentes',
   'por-enviar': 'Por enviar',
@@ -82,6 +84,8 @@ export default function GuestsPage() {
     const needle = fold(dq.trim())
     return guests.filter((g) => {
       if (cat !== 'todas' && g.category !== cat) return false
+      if (status === 'confirmados' && !g.confirmedAt) return false
+      if (status === 'por-confirmar' && g.confirmedAt) return false
       if (status === 'presentes' && !g.checkedInAt) return false
       if (status === 'ausentes' && g.checkedInAt) return false
       if (status === 'por-enviar' && (g.inviteStatus !== 'pending' || !g.email)) return false
@@ -99,7 +103,7 @@ export default function GuestsPage() {
     <>
       <PageTitle
         title="Convidados"
-        description={data ? `${guests.length} na lista · ${guests.filter((g) => g.checkedInAt).length} presentes` : undefined}
+        description={data ? `${guests.length} na lista · ${guests.filter((g) => g.confirmedAt).length} confirmados · ${guests.filter((g) => g.checkedInAt).length} presentes` : undefined}
         actions={
           <>
             <Button variant="outline" className="h-10" disabled={!filtered.length} onClick={() => void exportXlsx(filtered)}>
