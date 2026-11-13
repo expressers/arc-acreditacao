@@ -9,6 +9,7 @@ import './index.css'
 
 const CredentialPage = lazy(() => import('@/pages/credential'))
 const ConfirmPage = lazy(() => import('@/pages/confirm'))
+const RatingPage = lazy(() => import('@/pages/rating'))
 const DoorPage = lazy(() => import('@/pages/door'))
 const AdminLayout = lazy(() => import('@/pages/admin/layout'))
 const OverviewPage = lazy(() => import('@/pages/admin/overview'))
@@ -16,6 +17,7 @@ const GuestsPage = lazy(() => import('@/pages/admin/guests'))
 const ImportPage = lazy(() => import('@/pages/admin/import'))
 const InvitesPage = lazy(() => import('@/pages/admin/invites'))
 const EventPage = lazy(() => import('@/pages/admin/event'))
+const RatingsPage = lazy(() => import('@/pages/admin/ratings'))
 
 function Fallback() {
   return <div className="grid min-h-dvh place-items-center text-sm text-muted-foreground">A carregar…</div>
@@ -30,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<LoginPage />} />
             <Route path="/c/:token" element={<CredentialPage />} />
             <Route path="/confirmar/:token" element={<ConfirmPage />} />
+            <Route path="/avaliar/:token" element={<RatingPage />} />
             <Route
               path="/porta"
               element={
@@ -51,6 +54,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="importar" element={<ImportPage />} />
               <Route path="convites" element={<InvitesPage />} />
               <Route path="evento" element={<EventPage />} />
+              <Route path="avaliacoes" element={<RatingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

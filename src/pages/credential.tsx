@@ -1,5 +1,5 @@
-import { Navigate, useParams } from 'react-router'
-import { CalendarPlus, CheckCircle2, Download, FileText, SunMedium } from 'lucide-react'
+import { Link, Navigate, useParams } from 'react-router'
+import { CalendarPlus, CheckCircle2, ChevronRight, Download, FileText, Star, SunMedium } from 'lucide-react'
 import { CATEGORY_LABEL, type Category, type EventSettings } from '@shared/guests'
 import { longDate, timeRange } from '@shared/format'
 import { Button } from '@/components/ui/button'
@@ -119,6 +119,20 @@ export default function CredentialPage() {
           <SunMedium className="size-4 shrink-0" />
           À entrada, aumente o brilho do ecrã e mostre este código.
         </p>
+
+        <Link
+          to={`/avaliar/${token}`}
+          className="press mt-5 flex items-center gap-3 rounded-2xl border border-white/25 bg-white/10 px-4 py-3.5 text-white transition-colors hover:bg-white/15"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15">
+            <Star className="size-5 fill-white/90" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Avalie o evento</span>
+            <span className="block text-xs text-white/80">De 1 a 10 estrelas, com comentário opcional.</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-white/70" />
+        </Link>
 
         <div className="mt-auto grid grid-cols-2 gap-2 pt-6">
           <Button asChild className="press col-span-2 h-12 bg-white text-brand-700 hover:bg-white/90">

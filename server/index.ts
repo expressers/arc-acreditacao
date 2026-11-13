@@ -34,6 +34,14 @@ import {
   type Session,
 } from './auth.ts'
 import { GUEST_COLUMNS, getSettings, migrate, saveSettings, sql, toGuest, type GuestRow } from './db.ts'
+import {
+  MAX_RATING,
+  MAX_RATING_COMMENT,
+  MIN_RATING,
+  RATING_VALUES,
+  type RatingSummary,
+  type RatingValue,
+} from '../shared/ratings.ts'
 import { confirmUrl, dataSrc, inviteHtml, mailConfigured, mailFrom, sendInvite } from './mail.ts'
 
 type Env = { Variables: { session: Session } }
@@ -153,6 +161,72 @@ app.post('/api/public/confirm/:token', async (c) => {
       confirmed_at = now(), updated_at = now()
     where id = ${self.id}`
   return c.json({ ok: true })
+})
+
+// ───────────────────────── avaliação do evento (convidado) ─────────────────────────
+
+/** Quem tem o link da credencial pode avaliar. O token é a autorização, como no convite. */
+app.get('/api/public/rating/:token', async (c) => {
+  const token = c.req.param('token') ?? ''
+  if (!TOKEN_RE.test(token)) return c.json({ error: 'Link de avaliação inválido.' }, 404)
+  const [row] = await sql<
+    {
+      id: string
+      name: string
+      category: Category
+      rating: number | null
+      comment: string | null
+      created_at: Date | null
+      updated_at: Date | null
+    }[]
+  >`
+    select g.id, g.name, g.category, r.rating, r.comment, r.created_at, r.updated_at
+    from guests g left join ratings r on r.guest_id = g.id
+    where g.token = ${token}`
+  if (!row) return c.json({ error: 'Link de avaliação inválido ou substituído.' }, 404)
+  return c.json({
+    guest: { name: row.name, category: row.category },
+    rating:
+      row.rating !== null && row.created_at && row.updated_at
+        ? {
+            rating: row.rating,
+            comment: row.comment,
+            createdAt: row.created_at.toISOString(),
+            updatedAt: row.updated_at.toISOString(),
+          }
+        : null,
+    settings: await getSettings(),
+  })
+})
+
+const ratingSchema = z.object({
+  rating: z.number().int().min(MIN_RATING).max(MAX_RATING),
+  comment: z.string().max(MAX_RATING_COMMENT).nullable().optional(),
+})
+
+app.post('/api/public/rating/:token', async (c) => {
+  const token = c.req.param('token') ?? ''
+  if (!TOKEN_RE.test(token)) return c.json({ error: 'Link de avaliação inválido.' }, 404)
+  const [guest] = await sql<{ id: string }[]>`select id from guests where token = ${token}`
+  if (!guest) return c.json({ error: 'Link de avaliação inválido ou substituído.' }, 404)
+  const body = ratingSchema.safeParse(await c.req.json().catch(() => null))
+  if (!body.success) return c.json({ error: 'Escolha uma nota entre 1 e 10.' }, 400)
+  const comment = cleanText(body.data.comment, MAX_RATING_COMMENT) || null
+  // Uma avaliação por convidado: voltar a enviar actualiza a anterior, sem apagar o convidado.
+  const [row] = await sql<{ rating: number; comment: string | null; created_at: Date; updated_at: Date }[]>`
+    insert into ratings (guest_id, rating, comment)
+    values (${guest.id}, ${body.data.rating}, ${comment})
+    on conflict (guest_id) do update set rating = excluded.rating, comment = excluded.comment, updated_at = now()
+    returning rating, comment, created_at, updated_at`
+  return c.json({
+    ok: true,
+    rating: {
+      rating: row.rating,
+      comment: row.comment,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    },
+  })
 })
 
 // ───────────────────────── sessão ─────────────────────────
@@ -299,6 +373,47 @@ app.get('/api/stats', admin, async (c) => {
     recent: recent.map((r) => ({ ...r, at: r.at.toISOString() })),
     mail: { configured: mailConfigured, from: mailFrom },
     job: publicJob(),
+  })
+})
+
+app.get('/api/ratings', admin, async (c) => {
+  const rows = await sql<
+    {
+      guest_id: string | null
+      name: string | null
+      email: string | null
+      category: Category | null
+      organization: string | null
+      rating: number
+      comment: string | null
+      created_at: Date
+      updated_at: Date
+    }[]
+  >`
+    select r.guest_id, g.name, g.email, g.category, g.organization, r.rating, r.comment, r.created_at, r.updated_at
+    from ratings r left join guests g on g.id = r.guest_id
+    order by r.created_at desc`
+  const [agg] = await sql<{ count: number; average: number | null }[]>`
+    select count(*)::int as count, avg(rating)::float as average from ratings`
+  const byRating = await sql<{ rating: number; count: number }[]>`
+    select rating, count(*)::int as count from ratings group by rating`
+  const [attendance] = await sql<{ attended: number }[]>`select count(checked_in_at)::int as attended from guests`
+  return c.json<RatingSummary>({
+    count: agg.count,
+    average: agg.average === null ? null : Math.round(agg.average * 10) / 10,
+    attended: attendance.attended,
+    distribution: RATING_VALUES.map((v) => byRating.find((r) => r.rating === v)?.count ?? 0),
+    rows: rows.map((r) => ({
+      guestId: r.guest_id,
+      name: r.name,
+      email: r.email,
+      category: r.category,
+      organization: r.organization,
+      rating: r.rating as RatingValue,
+      comment: r.comment,
+      createdAt: r.created_at.toISOString(),
+      updatedAt: r.updated_at.toISOString(),
+    })),
   })
 })
 

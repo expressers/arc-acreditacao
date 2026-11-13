@@ -69,6 +69,18 @@ export async function migrate() {
       value jsonb not null,
       updated_at timestamptz not null default now()
     )`
+  // Avaliações do evento. Migração apenas aditiva: não altera nem apaga dados existentes.
+  // Se um convidado for removido, a avaliação mantém-se (guest_id passa a nulo).
+  await sql`
+    create table if not exists ratings (
+      id bigserial primary key,
+      guest_id uuid unique references guests(id) on delete set null,
+      rating smallint not null check (rating between 1 and 10),
+      comment text check (comment is null or char_length(comment) <= 1000),
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )`
+  await sql`create index if not exists ratings_created_idx on ratings (created_at desc)`
 }
 
 type GuestRow = {

@@ -97,6 +97,26 @@ const scans: Scan[] = guests
   .filter((g) => g.checkedInAt)
   .map((g) => ({ guestId: g.id, result: 'ok', device: g.checkedInBy ?? 'Entrada', at: g.checkedInAt! }))
 
+type DemoRating = { guestId: string; rating: number; comment: string | null; createdAt: string; updatedAt: string }
+
+const RATING_SEED: Array<[number, string | null]> = [
+  [10, 'Conferência excelente. Os painéis sobre regulação foram muito claros.'],
+  [9, 'Muito bem organizado. Só o coffee-break podia ter mais opções.'],
+  [8, null],
+  [7, 'Bom debate, mas o tempo de perguntas foi curto.'],
+  [10, null],
+  [6, 'A sala estava um pouco fria e o som falhou no segundo painel.'],
+  [9, 'Excelente seleção de oradores.'],
+  [8, 'Gostei muito. Sugiro mais tempo para networking.'],
+  [5, 'Conteúdo bom, mas o credenciamento demorou.'],
+]
+
+const ratings: DemoRating[] = guests.slice(0, RATING_SEED.length).map((g, i) => {
+  const [rating, comment] = RATING_SEED[i]
+  const at = minutes(30 + i * 17)
+  return { guestId: g.id, rating, comment, createdAt: at, updatedAt: at }
+})
+
 let job: { running: boolean; total: number; done: number; failed: number; startedAt: string; finishedAt: string | null } | null =
   null
 
@@ -171,6 +191,24 @@ function route(method: string, path: string, body: any): Reply {
     return ok({ ok: true })
   }
 
+  if (p.startsWith('/api/public/rating/')) {
+    const t = decodeURIComponent(p.split('/').pop() ?? '')
+    const g = guests.find((x) => x.token === t) ?? guests[0]
+    if (method === 'GET') {
+      return ok({ guest: { name: g.name, category: g.category }, rating: ratings.find((x) => x.guestId === g.id) ?? null, settings })
+    }
+    if (method === 'POST') {
+      const rating = Number(body?.rating)
+      if (!Number.isInteger(rating) || rating < 1 || rating > 10) return fail('Escolha uma nota entre 1 e 10.')
+      const comment = String(body?.comment ?? '').trim().slice(0, 1000) || null
+      const at = new Date().toISOString()
+      const existing = ratings.find((x) => x.guestId === g.id)
+      if (existing) Object.assign(existing, { rating, comment, updatedAt: at })
+      else ratings.push({ guestId: g.id, rating, comment, createdAt: at, updatedAt: at })
+      return ok({ ok: true, rating: ratings.find((x) => x.guestId === g.id) })
+    }
+  }
+
   if (p === '/api/login' && method === 'POST') {
     if (String(body?.secret ?? '') !== SECRET)
       return fail(body?.role === 'admin' ? 'Palavra-passe incorrecta.' : 'PIN incorrecto.', 401)
@@ -212,6 +250,32 @@ function route(method: string, path: string, body: any): Reply {
   if (p === '/api/door/stats') return ok({ total: guests.length, present: guests.filter((g) => g.checkedInAt).length })
 
   if (!isAdmin) return fail('Sem permissão.', 403)
+
+  if (p === '/api/ratings') {
+    const count = ratings.length
+    return ok({
+      count,
+      average: count ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / count) * 10) / 10 : null,
+      attended: guests.filter((g) => g.checkedInAt).length,
+      distribution: Array.from({ length: 10 }, (_, i) => ratings.filter((r) => r.rating === i + 1).length),
+      rows: ratings
+        .map((r) => {
+          const g = guests.find((x) => x.id === r.guestId)
+          return {
+            guestId: g?.id ?? null,
+            name: g?.name ?? null,
+            email: g?.email ?? null,
+            category: g?.category ?? null,
+            organization: g?.organization ?? null,
+            rating: r.rating,
+            comment: r.comment,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+          }
+        })
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    })
+  }
 
   if (p === '/api/stats') {
     const perCategory = Object.fromEntries(

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Link } from 'react-router'
-import { CalendarCog, FileSpreadsheet, LayoutGrid, LogOut, Mail, ScanLine, Users } from 'lucide-react'
+import { CalendarCog, FileSpreadsheet, LayoutGrid, LogOut, Mail, ScanLine, Star, Users } from 'lucide-react'
 import { dateBlock } from '@shared/format'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/session'
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/admin/importar', label: 'Importar', icon: FileSpreadsheet },
   { to: '/admin/convites', label: 'Convites', icon: Mail },
   { to: '/admin/evento', label: 'Evento', icon: CalendarCog },
+  { to: '/admin/avaliacoes', label: 'Avaliações', icon: Star },
 ]
 
 export default function AdminLayout() {
@@ -80,7 +81,7 @@ export default function AdminLayout() {
         </main>
 
         {/* Navegação inferior (telemóvel) */}
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -88,13 +89,13 @@ export default function AdminLayout() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex h-16 flex-col items-center justify-center gap-1 text-[0.68rem] font-semibold transition-colors',
+                  'flex h-16 min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-[0.64rem] font-semibold transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground',
                 )
               }
             >
               <Icon className="size-5" />
-              {label}
+              <span className="max-w-full truncate">{label}</span>
             </NavLink>
           ))}
         </nav>

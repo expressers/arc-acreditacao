@@ -8,6 +8,7 @@ PWA mobile-first para a **VII Conferência Anual sobre Concorrência e Regulaç�
 - Envio dos convites por **email** (SMTP), com o QR embutido e o link da credencial; envio em lote com progresso, reenvio e teste.
 - **Leitor de entrada** (câmara do telemóvel): regista a entrada de forma atómica — cada QR só entra uma vez, com aviso de "já entrou" e de QR inválido, som e vibração. Pesquisa por nome como plano B.
 - Painel em tempo real: presentes por categoria, últimas entradas, exportação para Excel.
+- **Avaliação do evento** pelos convidados: 1 a 10 estrelas (1 = insatisfeito, 10 = muito satisfeito) e comentário opcional, a partir da credencial. Resultados, distribuição e comentários no painel, com exportação para Excel.
 - Instalável (PWA), com o visual do evento (azul ARC, tipografia condensada).
 
 ## Acessos
