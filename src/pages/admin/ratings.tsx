@@ -1,4 +1,5 @@
-import { Download, Star } from 'lucide-react'
+import { Link } from 'react-router'
+import { Download, QrCode, Star } from 'lucide-react'
 import { CATEGORY_LABEL } from '@shared/guests'
 import { RATING_VALUES, type RatingRow, type RatingSummary } from '@shared/ratings'
 import { dateTime } from '@shared/format'
@@ -53,18 +54,28 @@ export default function RatingsPage() {
   const comments = s.rows.filter((r) => r.comment)
   const max = Math.max(...s.distribution, 1)
   const average = s.average === null ? null : s.average.toFixed(1).replace('.', ',')
-  const responseRate = s.attended ? Math.round((s.count / s.attended) * 100) : null
+  const publicCount = s.rows.filter((r) => r.guestId === null).length
+  const guestCount = s.count - publicCount
+  const responseRate = s.attended ? Math.round((guestCount / s.attended) * 100) : null
 
   return (
     <>
       <PageTitle
         title="Avaliações"
-        description="Notas de 1 (insatisfeito) a 10 (muito satisfeito). Cada convidado tem uma avaliação; a mais recente substitui a anterior."
+        description="Notas de 1 (insatisfeito) a 10 (muito satisfeito), pelo link individual ou pelo QR público. Cada convidado tem uma avaliação; a mais recente substitui a anterior."
         actions={
-          <Button variant="outline" className="h-10" disabled={!s.rows.length} onClick={() => void exportXlsx(s.rows)}>
-            <Download className="size-4" />
-            <span className="hidden sm:inline">Exportar</span>
-          </Button>
+          <>
+            <Button asChild variant="outline" className="h-10">
+              <Link to="/avaliar/qr" target="_blank" rel="noopener">
+                <QrCode className="size-4" />
+                <span className="hidden sm:inline">QR para o público</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-10" disabled={!s.rows.length} onClick={() => void exportXlsx(s.rows)}>
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          </>
         }
       />
 
@@ -73,8 +84,8 @@ export default function RatingsPage() {
           <Star className="mx-auto size-8 text-muted-foreground/50" />
           <h2 className="mt-3 text-lg font-bold">Ainda não há avaliações</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Os convidados avaliam através do botão “Avaliar o evento” na credencial. Não é preciso enviar nada novo: quem tem o link da
-            credencial já pode responder.
+            Os convidados avaliam pelo botão “Avaliar o evento” na credencial ou pelo QR público do evento. Não é preciso enviar
+            convites novos: abra <strong>QR para o público</strong> e mostre o código no ecrã ou imprima-o.
           </p>
         </section>
       ) : (
@@ -87,11 +98,12 @@ export default function RatingsPage() {
                 <span className="text-lg text-muted-foreground">/ 10</span>
               </p>
               <p className="mt-2 text-sm text-muted-foreground tabular">
-                {s.count} {s.count === 1 ? 'avaliação' : 'avaliações'}
+                {s.count} {s.count === 1 ? 'avaliação' : 'avaliações'} · {guestCount} pelo link individual
+                {publicCount > 0 && ` · ${publicCount} pelo QR público`}
                 {responseRate !== null && ` · ${responseRate}% dos ${s.attended} presentes`}
               </p>
 
-              <dl className="mt-5 grid grid-cols-2 gap-2 text-center">
+              <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-muted/60 px-2 py-3">
                   <dd className="text-xl font-bold tabular">{comments.length}</dd>
                   <dt className="text-xs text-muted-foreground">Com comentário</dt>
@@ -99,6 +111,10 @@ export default function RatingsPage() {
                 <div className="rounded-xl bg-muted/60 px-2 py-3">
                   <dd className="text-xl font-bold tabular">{s.rows.filter((r) => r.rating >= 8).length}</dd>
                   <dt className="text-xs text-muted-foreground">Notas 8 a 10</dt>
+                </div>
+                <div className="rounded-xl bg-muted/60 px-2 py-3">
+                  <dd className="text-xl font-bold tabular">{publicCount}</dd>
+                  <dt className="text-xs text-muted-foreground">QR público</dt>
                 </div>
               </dl>
             </section>
@@ -135,17 +151,23 @@ export default function RatingsPage() {
               <p className="mt-3 text-sm text-muted-foreground">Nenhum comentário por agora. As notas continuam registadas acima.</p>
             ) : (
               <ul className="mt-2 divide-y">
-                {comments.map((r) => (
-                  <li key={`${r.guestId ?? 'sem-convidado'}-${r.updatedAt}`} className="py-4 first:pt-2 last:pb-0">
+                {comments.map((r, i) => (
+                  <li key={`${r.updatedAt}-${i}`} className="py-4 first:pt-2 last:pb-0">
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                       <StarRating readOnly value={r.rating} size="sm" />
                       <span className="text-sm font-bold tabular">{r.rating}/10</span>
-                      {r.category && <CategoryBadge category={r.category} />}
+                      {r.category ? (
+                        <CategoryBadge category={r.category} />
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[0.7rem] font-bold tracking-wider text-muted-foreground uppercase">
+                          Público
+                        </span>
+                      )}
                       <span className="ml-auto text-xs text-muted-foreground tabular">{dateTime(r.updatedAt)}</span>
                     </div>
                     <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-line">{r.comment}</p>
                     <p className="mt-1.5 text-xs text-muted-foreground">
-                      {r.name ?? 'Convidado removido'}
+                      {r.name ?? 'Participante anónimo'}
                       {r.organization && ` · ${r.organization}`}
                     </p>
                   </li>

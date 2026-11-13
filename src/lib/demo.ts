@@ -97,7 +97,15 @@ const scans: Scan[] = guests
   .filter((g) => g.checkedInAt)
   .map((g) => ({ guestId: g.id, result: 'ok', device: g.checkedInBy ?? 'Entrada', at: g.checkedInAt! }))
 
-type DemoRating = { guestId: string; rating: number; comment: string | null; createdAt: string; updatedAt: string }
+type DemoRating = {
+  guestId: string | null
+  name: string | null
+  voterKey: string | null
+  rating: number
+  comment: string | null
+  createdAt: string
+  updatedAt: string
+}
 
 const RATING_SEED: Array<[number, string | null]> = [
   [10, 'Conferência excelente. Os painéis sobre regulação foram muito claros.'],
@@ -114,7 +122,16 @@ const RATING_SEED: Array<[number, string | null]> = [
 const ratings: DemoRating[] = guests.slice(0, RATING_SEED.length).map((g, i) => {
   const [rating, comment] = RATING_SEED[i]
   const at = minutes(30 + i * 17)
-  return { guestId: g.id, rating, comment, createdAt: at, updatedAt: at }
+  return { guestId: g.id, name: null, voterKey: null, rating, comment, createdAt: at, updatedAt: at }
+})
+ratings.push({
+  guestId: null,
+  name: 'Participante do público',
+  voterKey: null,
+  rating: 9,
+  comment: 'Cheguei pelo QR Code no ecrã. Muito boa organização.',
+  createdAt: minutes(12),
+  updatedAt: minutes(12),
 })
 
 let job: { running: boolean; total: number; done: number; failed: number; startedAt: string; finishedAt: string | null } | null =
@@ -191,6 +208,26 @@ function route(method: string, path: string, body: any): Reply {
     return ok({ ok: true })
   }
 
+  if (p === '/api/public/rating') {
+    if (method === 'GET') {
+      const key = url.searchParams.get('key')
+      const r = key ? ratings.find((x) => x.voterKey === key) : undefined
+      return ok({ settings, rating: r ?? null })
+    }
+    if (method === 'POST') {
+      const rating = Number(body?.rating)
+      if (!Number.isInteger(rating) || rating < 1 || rating > 10) return fail('Escolha uma nota entre 1 e 10.')
+      const comment = String(body?.comment ?? '').trim().slice(0, 1000) || null
+      const name = String(body?.name ?? '').trim().slice(0, 120) || null
+      const voterKey = String(body?.voterKey ?? '').trim() || null
+      const at = new Date().toISOString()
+      const existing = voterKey ? ratings.find((x) => x.voterKey === voterKey) : undefined
+      if (existing) Object.assign(existing, { name, rating, comment, updatedAt: at })
+      else ratings.push({ guestId: null, name, voterKey, rating, comment, createdAt: at, updatedAt: at })
+      return ok({ ok: true, rating: existing ?? ratings[ratings.length - 1] })
+    }
+  }
+
   if (p.startsWith('/api/public/rating/')) {
     const t = decodeURIComponent(p.split('/').pop() ?? '')
     const g = guests.find((x) => x.token === t) ?? guests[0]
@@ -204,7 +241,7 @@ function route(method: string, path: string, body: any): Reply {
       const at = new Date().toISOString()
       const existing = ratings.find((x) => x.guestId === g.id)
       if (existing) Object.assign(existing, { rating, comment, updatedAt: at })
-      else ratings.push({ guestId: g.id, rating, comment, createdAt: at, updatedAt: at })
+      else ratings.push({ guestId: g.id, name: null, voterKey: null, rating, comment, createdAt: at, updatedAt: at })
       return ok({ ok: true, rating: ratings.find((x) => x.guestId === g.id) })
     }
   }
@@ -260,10 +297,10 @@ function route(method: string, path: string, body: any): Reply {
       distribution: Array.from({ length: 10 }, (_, i) => ratings.filter((r) => r.rating === i + 1).length),
       rows: ratings
         .map((r) => {
-          const g = guests.find((x) => x.id === r.guestId)
+          const g = r.guestId ? guests.find((x) => x.id === r.guestId) : undefined
           return {
             guestId: g?.id ?? null,
-            name: g?.name ?? null,
+            name: g?.name ?? r.name,
             email: g?.email ?? null,
             category: g?.category ?? null,
             organization: g?.organization ?? null,

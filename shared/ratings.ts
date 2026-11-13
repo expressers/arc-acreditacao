@@ -10,6 +10,7 @@ export type RatingValue = (typeof RATING_VALUES)[number]
 export const MIN_RATING = RATING_VALUES[0]
 export const MAX_RATING = RATING_VALUES[RATING_VALUES.length - 1]
 export const MAX_RATING_COMMENT = 1000
+export const MAX_RATING_NAME = 120
 
 export const RATING_LABELS: Record<RatingValue, string> = {
   1: 'Insatisfeito',

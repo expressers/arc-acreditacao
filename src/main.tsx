@@ -10,6 +10,8 @@ import './index.css'
 const CredentialPage = lazy(() => import('@/pages/credential'))
 const ConfirmPage = lazy(() => import('@/pages/confirm'))
 const RatingPage = lazy(() => import('@/pages/rating'))
+const PublicRatingPage = lazy(() => import('@/pages/public-rating'))
+const RatingQrPage = lazy(() => import('@/pages/rating-qr'))
 const DoorPage = lazy(() => import('@/pages/door'))
 const AdminLayout = lazy(() => import('@/pages/admin/layout'))
 const OverviewPage = lazy(() => import('@/pages/admin/overview'))
@@ -32,6 +34,8 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<LoginPage />} />
             <Route path="/c/:token" element={<CredentialPage />} />
             <Route path="/confirmar/:token" element={<ConfirmPage />} />
+            <Route path="/avaliar" element={<PublicRatingPage />} />
+            <Route path="/avaliar/qr" element={<RatingQrPage />} />
             <Route path="/avaliar/:token" element={<RatingPage />} />
             <Route
               path="/porta"

@@ -75,11 +75,16 @@ export async function migrate() {
     create table if not exists ratings (
       id bigserial primary key,
       guest_id uuid unique references guests(id) on delete set null,
+      name text check (name is null or char_length(name) <= 120),
+      voter_key text unique,
       rating smallint not null check (rating between 1 and 10),
       comment text check (comment is null or char_length(comment) <= 1000),
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )`
+  await sql`alter table ratings add column if not exists name text`
+  await sql`alter table ratings add column if not exists voter_key text`
+  await sql`create unique index if not exists ratings_voter_key_key on ratings (voter_key)`
   await sql`create index if not exists ratings_created_idx on ratings (created_at desc)`
 }
 

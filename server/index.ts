@@ -37,6 +37,7 @@ import { GUEST_COLUMNS, getSettings, migrate, saveSettings, sql, toGuest, type G
 import {
   MAX_RATING,
   MAX_RATING_COMMENT,
+  MAX_RATING_NAME,
   MIN_RATING,
   RATING_VALUES,
   type RatingSummary,
@@ -163,7 +164,62 @@ app.post('/api/public/confirm/:token', async (c) => {
   return c.json({ ok: true })
 })
 
-// ───────────────────────── avaliação do evento (convidado) ─────────────────────────
+// ───────────────────────── avaliação do evento ─────────────────────────
+
+/**
+ * Avaliação aberta, pelo QR Code mostrado no evento. Não exige convite nem
+ * credencial: o browser guarda uma chave local para o convidado poder corrigir
+ * a nota sem criar respostas repetidas.
+ */
+app.get('/api/public/rating', async (c) => {
+  const key = cleanText(c.req.query('key'), 64)
+  const [row] = key
+    ? await sql<{ rating: number; comment: string | null; name: string | null; created_at: Date; updated_at: Date }[]>`
+        select rating, comment, name, created_at, updated_at from ratings where voter_key = ${key}`
+    : []
+  return c.json({
+    settings: await getSettings(),
+    rating: row
+      ? {
+          rating: row.rating,
+          comment: row.comment,
+          name: row.name,
+          createdAt: row.created_at.toISOString(),
+          updatedAt: row.updated_at.toISOString(),
+        }
+      : null,
+  })
+})
+
+const publicRatingSchema = z.object({
+  rating: z.number().int().min(MIN_RATING).max(MAX_RATING),
+  comment: z.string().max(MAX_RATING_COMMENT).nullable().optional(),
+  name: z.string().max(MAX_RATING_NAME).nullable().optional(),
+  voterKey: z.string().min(8).max(64).optional(),
+})
+
+app.post('/api/public/rating', async (c) => {
+  const body = publicRatingSchema.safeParse(await c.req.json().catch(() => null))
+  if (!body.success) return c.json({ error: 'Escolha uma nota entre 1 e 10.' }, 400)
+  const name = cleanText(body.data.name, MAX_RATING_NAME) || null
+  const comment = cleanText(body.data.comment, MAX_RATING_COMMENT) || null
+  const voterKey = cleanText(body.data.voterKey, 64) || null
+  const [row] = await sql<{ rating: number; comment: string | null; name: string | null; created_at: Date; updated_at: Date }[]>`
+    insert into ratings (name, voter_key, rating, comment)
+    values (${name}, ${voterKey}, ${body.data.rating}, ${comment})
+    on conflict (voter_key) do update set name = excluded.name, rating = excluded.rating, comment = excluded.comment, updated_at = now()
+    returning rating, comment, name, created_at, updated_at`
+  return c.json({
+    ok: true,
+    rating: {
+      rating: row.rating,
+      comment: row.comment,
+      name: row.name,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    },
+  })
+})
 
 /** Quem tem o link da credencial pode avaliar. O token é a autorização, como no convite. */
 app.get('/api/public/rating/:token', async (c) => {
@@ -390,7 +446,8 @@ app.get('/api/ratings', admin, async (c) => {
       updated_at: Date
     }[]
   >`
-    select r.guest_id, g.name, g.email, g.category, g.organization, r.rating, r.comment, r.created_at, r.updated_at
+    select r.guest_id, coalesce(g.name, r.name) as name, g.email, g.category, g.organization,
+      r.rating, r.comment, r.created_at, r.updated_at
     from ratings r left join guests g on g.id = r.guest_id
     order by r.created_at desc`
   const [agg] = await sql<{ count: number; average: number | null }[]>`
